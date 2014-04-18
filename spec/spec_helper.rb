@@ -5,6 +5,10 @@ $LOAD_PATH.unshift(File.dirname(__FILE__))
 Dir["#{File.dirname(__FILE__)}/shared/**/*.rb"].each do |file|
   require file
 end
+# Load spec fixtures
+Dir["#{File.dirname(__FILE__)}/fixtures/**/*.rb"].each do |file|
+  require file
+end
 
 # Require library up front
 require 'aptible/resource'

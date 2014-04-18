@@ -23,23 +23,12 @@ module Aptible
         Aptible::Resource::Adapter
       end
 
-      def self.namespace
-        @@namespace || name
-      end
-
-      # rubocop:disable ClassVars
-      def self.inherited(child)
-        # Set namespace to first inheriting class
-        @@namespace = child.name
-      end
-      # rubocop:enable ClassVars
-
       def initialize(options = {})
         if options.is_a?(Hash)
           self.token = options[:token]
 
           options[:root] ||= root_url
-          options[:namespace] ||= self.class.namespace
+          options[:namespace] ||= namespace
           options[:headers] ||= { 'Content-Type' => 'application/json' }
           options[:headers].merge!(
             'Authorization' => "Bearer #{bearer_token}"
@@ -51,6 +40,10 @@ module Aptible
 
       def adapter
         self.class.adapter
+      end
+
+      def namespace
+        fail 'Resource server namespace must be defined by subclass'
       end
 
       def root_url
