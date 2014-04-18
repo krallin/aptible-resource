@@ -6,6 +6,32 @@
 
 Foundation classes for Aptible resource server gems.
 
+## Usage
+
+To build a new resource server gem on top of `aptible-resource`, create a top-level class for your resource server. For example:
+
+```ruby
+module Example
+  module Api
+    class Resource < Aptible::Resource::Base
+      def namespace
+        'Example::Api'
+      end
+
+      def root_url
+        'https://api.example.com'
+      end
+    end
+  end
+end
+```
+
+Then add the gem to your gemspec:
+
+```ruby
+spec.add_dependency 'aptible-resource'
+```
+
 ## Development
 
 This gem depends on a vendored version of [HyperResource](https://github.com/gamache/hyperresource), which can be updated from a local checkout of HyperResource as follows:
