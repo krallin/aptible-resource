@@ -4,19 +4,13 @@
 [![Build Status](https://travis-ci.org/aptible/aptible-resource.png?branch=master)](https://travis-ci.org/aptible/aptible-resource)
 [![Dependency Status](https://gemnasium.com/aptible/aptible-resource.png)](https://gemnasium.com/aptible/aptible-resource)
 
-TODO: Add description.
+Foundation classes for Aptible resource server gems.
 
-## Installation
+## Development
 
-Add the following line to your application's Gemfile.
+This gem depends on a vendored version of [HyperResource](https://github.com/gamache/hyperresource), which can be updated from a local checkout of HyperResource as follows:
 
-    gem 'aptible-resource'
-
-And then run `bundle install`.
-
-## Usage
-
-TODO: Add usage notes.
+    cp -rp /path/to/hyperresource/lib/hyper_resource* lib/
 
 ## Contributing
 

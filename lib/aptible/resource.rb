@@ -1,7 +1,7 @@
 require 'aptible/resource/version'
+require 'aptible/resource/base'
 
 module Aptible
   module Resource
-    # Your code goes here...
   end
 end
