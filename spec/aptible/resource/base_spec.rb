@@ -16,7 +16,7 @@ describe Aptible::Resource::Base do
   describe '#bearer_token' do
     it 'should accept an Aptible::Resource::Token' do
       token = Api::Token.new
-      token.stub(:access_token) { 'abtible_auth_token' }
+      token.stub(:access_token) { 'aptible_auth_token' }
       subject.stub(:token) { token }
       expect(subject.bearer_token).to eq token.access_token
     end
