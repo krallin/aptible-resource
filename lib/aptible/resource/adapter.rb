@@ -5,7 +5,9 @@ module Aptible
         def get_data_type_from_object(object)
           return nil unless object
 
-          if (type = object['_type'])
+          # TODO: Only reference _type
+          # See https://github.com/aptible/auth.aptible.com/issues/61
+          if (type = object['_type'] || object['type'])
             if type.respond_to?(:camelize)
               type.camelize
             else
