@@ -227,4 +227,29 @@ describe Aptible::Resource::Base do
       end
     end
   end
+
+  context '.field' do
+    it 'should define a method for the field' do
+      Api.field :foo, type: String
+      expect(subject.respond_to?(:foo)).to be_true
+    end
+
+    it 'should return the raw attribute' do
+      Api.field :foo, type: String
+      subject.stub(:attributes) { { foo: 'bar' } }
+      expect(subject.foo).to eq 'bar'
+    end
+
+    it 'should parse the attribute if DateTime' do
+      Api.field :created_at, type: DateTime
+      subject.stub(:attributes) { { created_at: Time.now.to_json } }
+      expect(subject.created_at).to be_a DateTime
+    end
+
+    it 'should parse the attribute if Time' do
+      Api.field :created_at, type: Time
+      subject.stub(:attributes) { { created_at: Time.now.to_json } }
+      expect(subject.created_at).to be_a Time
+    end
+  end
 end

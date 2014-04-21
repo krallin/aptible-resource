@@ -71,6 +71,12 @@ module Aptible
       end
       # rubocop:enable PredicateName
 
+      def self.field(name, options = {})
+        define_method name do
+          self.class.cast_field(attributes[name], options[:type])
+        end
+      end
+
       def self.belongs_to(relation)
         define_method relation do
           get unless loaded
@@ -124,6 +130,16 @@ module Aptible
           value.is_a?(HyperResource) ? [key, value.href] : [key, value]
         end
         Hash[params_array]
+      end
+
+      def self.cast_field(value, type)
+        if type == Time
+          Time.parse(value) if value
+        elsif type == DateTime
+          DateTime.parse(value) if value
+        else
+          value
+        end
       end
 
       def initialize(options = {})
