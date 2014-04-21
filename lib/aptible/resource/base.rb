@@ -1,18 +1,18 @@
 require 'fridge'
+require 'active_support/inflector'
 
 # Require vendored HyperResource
 $LOAD_PATH.unshift File.expand_path('../..', __FILE__)
 require 'hyper_resource'
 
 require 'aptible/resource/adapter'
-require 'aptible/resource/model'
+require 'aptible/resource/errors'
 
 module Aptible
   module Resource
+    # rubocop:disable ClassLength
     class Base < HyperResource
-      include Model
-
-      attr_accessor :token
+      attr_accessor :token, :errors
 
       def self.get_data_type_from_response(response)
         return nil unless response && response.body
@@ -21,6 +21,109 @@ module Aptible
 
       def self.adapter
         Aptible::Resource::Adapter
+      end
+
+      def self.collection_href
+        "/#{basename}"
+      end
+
+      def self.basename
+        name.split('::').last.downcase.pluralize
+      end
+
+      def self.all(options = {})
+        resource = find_by_url(collection_href, options)
+        return [] unless resource
+        resource.send(basename).entries
+      end
+
+      def self.find(id, options = {})
+        find_by_url("#{collection_href}/#{id}", options)
+      end
+
+      def self.find_by_url(url, options = {})
+        # REVIEW: Should exception be raised if return type mismatch?
+        new(options).find_by_url(url)
+      rescue HyperResource::ClientError => e
+        if e.response.status == 404
+          return nil
+        else
+          raise e
+        end
+      end
+
+      def self.create!(params = {})
+        token = params.delete(:token)
+        resource = new(token: token)
+        resource.send(basename).create(normalize_params(params))
+      end
+
+      def self.create(params = {})
+        create!(params)
+      rescue HyperResource::ResponseError => e
+        new.tap { |resource| resource.errors = Errors.from_exception(e) }
+      end
+
+      # rubocop:disable PredicateName
+      def self.has_many(relation)
+        define_has_many_getter(relation)
+        define_has_many_setter(relation)
+      end
+      # rubocop:enable PredicateName
+
+      def self.belongs_to(relation)
+        define_method relation do
+          get unless loaded
+          if (memoized = instance_variable_get("@#{relation}"))
+            memoized
+          elsif links[relation]
+            instance_variable_set("@#{relation}", links[relation].get)
+          end
+        end
+      end
+
+      # rubocop:disable PredicateName
+      def self.has_one(relation)
+        # Better than class << self + alias_method?
+        belongs_to(relation)
+      end
+      # rubocop:enable PredicateName
+
+      def self.define_has_many_getter(relation)
+        define_method relation do
+          get unless loaded
+          if (memoized = instance_variable_get("@#{relation}"))
+            memoized
+          elsif links[relation]
+            instance_variable_set("@#{relation}", links[relation].entries)
+          end
+        end
+      end
+
+      # rubocop:disable MethodLength
+      def self.define_has_many_setter(relation)
+        define_method "create_#{relation.to_s.singularize}!" do |params = {}|
+          get unless loaded
+          links[relation].create(self.class.normalize_params(params))
+        end
+
+        define_method "create_#{relation.to_s.singularize}" do |params = {}|
+          begin
+            send "create_#{relation.to_s.singularize}!", params
+          rescue HyperResource::ResponseError => e
+            Base.new(root: root_url, namespace: namespace).tap do |base|
+              base.errors = Errors.from_exception(e)
+            end
+          end
+        end
+      end
+      # rubocop:enable MethodLength
+
+      def self.normalize_params(params = {})
+        params_array = params.map do |key, value|
+          value.is_a?(HyperResource) ? [key, value.href] : [key, value]
+        end
+        Hash[params_array]
       end
 
       def initialize(options = {})
@@ -63,8 +166,38 @@ module Aptible
         when String then token
         end
       end
+
+      alias_method :_hyperresource_update, :update
+      def update!(params)
+        _hyperresource_update(self.class.normalize_params(params))
+      rescue HyperResource::ResponseError => e
+        self.errors = Errors.from_exception(e)
+        raise e
+      end
+
+      def update(params)
+        update!(params)
+      rescue HyperResource::ResponseError
+        false
+      end
+
+      def delete
+        super
+      rescue HyperResource::ResponseError
+        # HyperResource/Faraday choke on empty response bodies
+        nil
+      end
+      alias_method :destroy, :delete
+
+      # NOTE: The following does not update the object in-place
+      def reload
+        self.class.find_by_url(href, headers: headers)
+      end
+
+      def errors
+        @errors ||= Aptible::Resource::Errors.new
+      end
     end
+    # rubocop:enable ClassLength
   end
 end
-
-require 'aptible/resource/token'
