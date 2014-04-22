@@ -1,5 +1,6 @@
 module Aptible
   module Resource
-    VERSION = '0.2.1'
+    class Boolean
+    end
   end
 end

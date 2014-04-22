@@ -7,6 +7,7 @@ require 'hyper_resource'
 
 require 'aptible/resource/adapter'
 require 'aptible/resource/errors'
+require 'aptible/resource/boolean'
 
 module Aptible
   module Resource
@@ -75,6 +76,9 @@ module Aptible
         define_method name do
           self.class.cast_field(attributes[name], options[:type])
         end
+
+        # Define ? accessor for Boolean attributes
+        define_method("#{name}?") { !!send(name) } if options[:type] == Boolean
       end
 
       def self.belongs_to(relation)

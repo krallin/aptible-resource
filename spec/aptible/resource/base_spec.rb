@@ -251,5 +251,11 @@ describe Aptible::Resource::Base do
       subject.stub(:attributes) { { created_at: Time.now.to_json } }
       expect(subject.created_at).to be_a Time
     end
+
+    it 'should add a ? helper if Boolean' do
+      Api.field :awesome, type: Aptible::Resource::Boolean
+      subject.stub(:attributes) { { awesome: 'true' } }
+      expect(subject.awesome?).to be_true
+    end
   end
 end
