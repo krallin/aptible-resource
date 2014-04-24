@@ -207,9 +207,19 @@ describe Aptible::Resource::Base do
         expect(subject.create_mainframe.class).to eq Aptible::Resource::Base
       end
 
+      it 'should have errors present on error' do
+        mainframes_link.stub(:create) { fail hyperresource_exception }
+        expect(subject.create_mainframe.errors.any?).to be_true
+      end
+
       it 'should return the object in the event of successful creation' do
         mainframes_link.stub(:create) { mainframe }
         expect(subject.create_mainframe({})).to eq mainframe
+      end
+
+      it 'should have no errors on successful creation' do
+        mainframes_link.stub(:create) { mainframe }
+        expect(subject.create_mainframe.errors.any?).to be_false
       end
     end
 
