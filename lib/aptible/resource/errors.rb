@@ -19,6 +19,10 @@ module Aptible
       def full_messages
         @full_messages ||= []
       end
+
+      def any?
+        full_messages.any?
+      end
     end
   end
 end
