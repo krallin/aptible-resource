@@ -1,5 +1,6 @@
 require 'fridge'
 require 'active_support/inflector'
+require 'date'
 
 # Require vendored HyperResource
 $LOAD_PATH.unshift File.expand_path('../..', __FILE__)
