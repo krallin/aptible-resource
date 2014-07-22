@@ -1,5 +1,6 @@
 require 'fridge'
 require 'active_support/inflector'
+require 'active_support/core_ext'
 require 'date'
 
 # Require vendored HyperResource
@@ -37,6 +38,11 @@ module Aptible
         resource = find_by_url(collection_href, options)
         return [] unless resource
         resource.send(basename).entries
+      end
+
+      def self.where(options = {})
+        params = options.except(:token, :root, :namespace, :headers)
+        find_by_url("#{collection_href}?#{params.to_query}", options).entries
       end
 
       def self.find(id, options = {})
@@ -147,20 +153,23 @@ module Aptible
         end
       end
 
+      # rubocop:disable MethodLength
       def initialize(options = {})
         if options.is_a?(Hash)
           self.token = options[:token]
 
           options[:root] ||= root_url
           options[:namespace] ||= namespace
-          options[:headers] ||= { 'Content-Type' => 'application/json' }
+          options[:headers] ||= {}
           options[:headers].merge!(
+            'Content-Type' => 'application/json',
             'Authorization' => "Bearer #{bearer_token}"
           ) if options[:token]
         end
 
         super(options)
       end
+      # rubocop:enable MethodLength
 
       def adapter
         self.class.adapter
@@ -217,6 +226,10 @@ module Aptible
 
       def errors
         @errors ||= Aptible::Resource::Errors.new
+      end
+
+      def error_html
+        errors.full_messages.join('<br />')
       end
     end
     # rubocop:enable ClassLength

@@ -7,12 +7,11 @@ module Aptible
 
           # TODO: Only reference _type
           # See https://github.com/aptible/auth.aptible.com/issues/61
-          if (type = object['_type'] || object['type'])
-            if type.respond_to?(:camelize)
-              type.camelize
-            else
-              type[0].upcase + type[1..-1]
-            end
+          return nil unless (type = object['_type'] || object['type'])
+          if type.respond_to?(:camelize)
+            type.camelize
+          else
+            type[0].upcase + type[1..-1]
           end
         end
       end

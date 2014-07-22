@@ -10,8 +10,8 @@ Gem::Specification.new do |spec|
   spec.version       = Aptible::Resource::VERSION
   spec.authors       = ['Frank Macreery']
   spec.email         = ['frank@macreery.com']
-  spec.description   = %q(Foundation classes for Aptible resource server gems)
-  spec.summary       = %q(Foundation classes for Aptible resource server gems)
+  spec.description   = 'Foundation classes for Aptible resource server gems'
+  spec.summary       = 'Foundation classes for Aptible resource server gems'
   spec.homepage      = 'https://github.com/aptible/aptible-resource'
   spec.license       = 'MIT'
 
