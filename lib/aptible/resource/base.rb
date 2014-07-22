@@ -153,6 +153,7 @@ module Aptible
         end
       end
 
+      # rubocop:disable MethodLength
       def initialize(options = {})
         if options.is_a?(Hash)
           self.token = options[:token]
@@ -168,6 +169,7 @@ module Aptible
 
         super(options)
       end
+      # rubocop:enable MethodLength
 
       def adapter
         self.class.adapter
