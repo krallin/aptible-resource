@@ -42,6 +42,7 @@ module Aptible
 
       def self.where(options = {})
         params = options.except(:token, :root, :namespace, :headers)
+        params = normalize_params(params)
         find_by_url("#{collection_href}?#{params.to_query}", options).entries
       end
 
