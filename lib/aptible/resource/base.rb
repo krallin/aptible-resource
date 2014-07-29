@@ -1,4 +1,5 @@
 require 'fridge'
+require 'active_support'
 require 'active_support/inflector'
 require 'active_support/core_ext'
 require 'date'
