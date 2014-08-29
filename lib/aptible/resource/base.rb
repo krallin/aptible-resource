@@ -32,7 +32,7 @@ module Aptible
       end
 
       def self.basename
-        name.split('::').last.downcase.pluralize
+        name.split('::').last.underscore.pluralize
       end
 
       def self.all(options = {})
