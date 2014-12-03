@@ -131,6 +131,7 @@ module Aptible
       end
 
       # rubocop:disable MethodLength
+      # rubocop:disable AbcSize
       def self.define_has_many_setter(relation)
         define_method "create_#{relation.to_s.singularize}!" do |params = {}|
           get unless loaded
@@ -147,6 +148,7 @@ module Aptible
           end
         end
       end
+      # rubocop: enable AbcSize
       # rubocop:enable MethodLength
 
       def self.normalize_params(params = {})
