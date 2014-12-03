@@ -81,6 +81,11 @@ module Aptible
       end
       # rubocop:enable PredicateName
 
+      def self.embeds_many(relation)
+        define_embeds_many_getter(relation)
+        define_has_many_setter(relation)
+      end
+
       def self.field(name, options = {})
         define_method name do
           self.class.cast_field(attributes[name], options[:type])
@@ -119,7 +124,14 @@ module Aptible
         end
       end
 
+      def self.define_embeds_many_getter(relation)
+        define_method relation do
+          objects[relation].entries
+        end
+      end
+
       # rubocop:disable MethodLength
+      # rubocop:disable AbcSize
       def self.define_has_many_setter(relation)
         define_method "create_#{relation.to_s.singularize}!" do |params = {}|
           get unless loaded
@@ -136,6 +148,7 @@ module Aptible
           end
         end
       end
+      # rubocop: enable AbcSize
       # rubocop:enable MethodLength
 
       def self.normalize_params(params = {})

@@ -50,6 +50,7 @@ class HyperResource
                          :headers => rsrc.headers,
                          :namespace => rsrc.namespace)
               r.body = collection
+              r = classify(collection, r)
               objs[name] = apply(collection, r)
             else
               objs[name] = collection.map do |obj|
