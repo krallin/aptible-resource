@@ -124,8 +124,16 @@ module Aptible
         end
       end
 
+      def self.embeds_one(relation)
+        define_method relation do
+          get unless loaded
+          objects[relation]
+        end
+      end
+
       def self.define_embeds_many_getter(relation)
         define_method relation do
+          get unless loaded
           objects[relation].entries
         end
       end
