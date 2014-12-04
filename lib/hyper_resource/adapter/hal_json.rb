@@ -52,7 +52,7 @@ class HyperResource
               r.body = collection
               r = classify(collection, r)
               objs[name] = apply(collection, r)
-            else
+            elsif collection
               objs[name] = collection.map do |obj|
                 r = rc.new(:root => rsrc.root,
                            :headers => rsrc.headers,
