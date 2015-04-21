@@ -35,11 +35,18 @@ module Aptible
         name.split('::').last.underscore.pluralize
       end
 
+      # rubocop:disable AbcSize
       def self.all(options = {})
-        resource = find_by_url(collection_href, options)
+        resource = find_by_url(options[:href] || collection_href, options)
         return [] unless resource
-        resource.send(basename).entries
+        if resource.links.key?('next')
+          options[:href] = resource.links['next'].href
+          resource.send(basename).entries + all(options)
+        else
+          resource.send(basename).entries
+        end
       end
+      # rubocop: enable AbcSize
 
       def self.where(options = {})
         params = options.except(:token, :root, :namespace, :headers)

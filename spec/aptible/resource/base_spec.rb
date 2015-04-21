@@ -32,6 +32,7 @@ describe Aptible::Resource::Base do
 
     before do
       collection.stub(:mainframes) { [mainframe] }
+      collection.stub(:links) { Hash.new }
       Api::Mainframe.any_instance.stub(:find_by_url) { collection }
     end
 
@@ -48,6 +49,22 @@ describe Aptible::Resource::Base do
       options = { token: 'token' }
       expect(klass).to receive(:new).with(options).and_return klass.new
       Api::Mainframe.all(options)
+    end
+
+    describe 'when paginated' do
+      before do
+        page = double('page')
+        allow(page).to receive(:href).and_return(
+          '/next/page', '/next/page', '/next/page'
+        )
+        allow(collection).to receive(:links).and_return(
+          { 'next' => page }, { 'next' => page }, {}
+        )
+      end
+
+      it 'should collect entries on all pages' do
+        expect(Api::Mainframe.all).to eq [mainframe] + [mainframe]
+      end
     end
   end
 
