@@ -226,7 +226,7 @@ describe Aptible::Resource::Base do
 
       it 'should have errors present on error' do
         mainframes_link.stub(:create) { fail hyperresource_exception }
-        expect(subject.create_mainframe.errors.any?).to be_true
+        expect(subject.create_mainframe.errors.any?).to be true
       end
 
       it 'should return the object in the event of successful creation' do
@@ -236,7 +236,7 @@ describe Aptible::Resource::Base do
 
       it 'should have no errors on successful creation' do
         mainframes_link.stub(:create) { mainframe }
-        expect(subject.create_mainframe.errors.any?).to be_false
+        expect(subject.create_mainframe.errors.any?).to be false
       end
     end
 
@@ -258,7 +258,7 @@ describe Aptible::Resource::Base do
   context '.field' do
     it 'should define a method for the field' do
       Api.field :foo, type: String
-      expect(subject.respond_to?(:foo)).to be_true
+      expect(subject.respond_to?(:foo)).to be true
     end
 
     it 'should return the raw attribute' do
@@ -282,7 +282,7 @@ describe Aptible::Resource::Base do
     it 'should add a ? helper if Boolean' do
       Api.field :awesome, type: Aptible::Resource::Boolean
       subject.stub(:attributes) { { awesome: 'true' } }
-      expect(subject.awesome?).to be_true
+      expect(subject.awesome?).to be true
     end
   end
 end
