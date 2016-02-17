@@ -183,6 +183,16 @@ module Aptible
         end
       end
 
+      def self.faraday_options
+        # Default Faraday options. May be overridden by passing
+        # faraday_options to the initializer.
+        {
+          request: {
+            open_timeout: 10
+          }
+        }
+      end
+
       # rubocop:disable MethodLength
       def initialize(options = {})
         if options.is_a?(Hash)
