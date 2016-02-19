@@ -193,23 +193,23 @@ module Aptible
         }
       end
 
-      # rubocop:disable MethodLength
       def initialize(options = {})
         if options.is_a?(Hash)
           self.token = options[:token]
-
-          options[:root] ||= root_url
-          options[:namespace] ||= namespace
-          options[:headers] ||= {}
-          options[:headers].merge!(
-            'Content-Type' => 'application/json',
-            'Authorization' => "Bearer #{bearer_token}"
-          ) if options[:token]
+          populate_default_options!(options)
         end
 
         super(options)
       end
-      # rubocop:enable MethodLength
+
+      def populate_default_options!(options)
+        options[:root] ||= root_url
+        options[:namespace] ||= namespace
+        options[:headers] ||= {}
+        options[:headers]['Content-Type'] = 'application/json'
+        return unless options[:token]
+        options[:headers]['Authorization'] = "Bearer #{bearer_token}"
+      end
 
       def adapter
         self.class.adapter
