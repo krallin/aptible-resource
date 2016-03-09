@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
 
   # HyperResource dependencies
   spec.add_dependency 'uri_template', '>= 0.5.2'
-  spec.add_dependency 'faraday',      '>= 0.8.6'
+  spec.add_dependency 'faraday',      '~> 0.9.2'
   spec.add_dependency 'json'
 
   spec.add_dependency 'fridge'
@@ -32,4 +32,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rake'
   spec.add_development_dependency 'rspec', '~> 2.0'
   spec.add_development_dependency 'pry'
+  spec.add_development_dependency 'webmock'
 end

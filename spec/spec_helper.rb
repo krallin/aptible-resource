@@ -12,3 +12,7 @@ end
 
 # Require library up front
 require 'aptible/resource'
+
+# Webmock
+require 'webmock/rspec'
+WebMock.allow_net_connect!
