@@ -1,17 +1,49 @@
 require 'spec_helper'
 
-describe Aptible::Resource::Base, slow: true do
-  subject { Api.new(root: 'http://10.255.255.1/') }
+# With webmock (fake connections), to check how we handle timeouts.
+describe Aptible::Resource::Base do
+  let(:body) { { 'hello' => '1' } }
+  let(:json_body) { JSON.unparse(body) }
+  let(:domain) { 'api.aptible.com' }
 
-  it 'should time out by default after a reasonable delay' do
-    # Faraday throws different kinds of errors depending on whether
-    # Net::OpenTimeout is defined, so let's check for this
-    # https://github.com/lostisland/faraday/issues/561
-    e = Faraday::Error::TimeoutError
-    e = Faraday::Error::ConnectionFailed if defined? Net::OpenTimeout
+  subject { Api.new(root: "http://#{domain}") }
 
-    expect do
-      Timeout.timeout(15) { subject.all }
-    end.to raise_error(e, 'execution expired')
+  context 'with mock connections' do
+    around do |example|
+      WebMock.disable_net_connect!
+      example.run
+      WebMock.allow_net_connect!
+    end
+
+    it 'should retry timeout errors' do
+      stub_request(:get, domain)
+        .to_timeout.then
+        .to_timeout.then
+        .to_return(body: json_body)
+
+      expect(subject.get.body).to eq(body)
+    end
+
+    it 'should not retry POSTs' do
+      stub_request(:post, domain)
+        .to_timeout.then
+        .to_return(body: json_body)
+
+      expect { subject.post }.to raise_error(Faraday::TimeoutError)
+    end
+  end
+
+  context 'without connections' do
+    it 'default to 10 seconds of timeout and retry 3 times' do
+      # This really relies on how exactly MRI implements Net::HTTP open timeouts
+      skip 'MRI implementation-specific' if RUBY_PLATFORM == 'java'
+
+      expect(Timeout).to receive(:timeout)
+        .with(10, Net::OpenTimeout)
+        .exactly(3).times
+        .and_raise(Net::OpenTimeout)
+
+      expect { subject.all }.to raise_error(Faraday::Error::TimeoutError)
+    end
   end
 end

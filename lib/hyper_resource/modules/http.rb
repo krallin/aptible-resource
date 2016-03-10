@@ -78,12 +78,18 @@ class HyperResource
         }.to_json)
         return Thread.current[key] if Thread.current[key]
 
-        fc = Faraday.new(self.faraday_options.merge(:url => url))
-        fc.headers.merge!('User-Agent' => "HyperResource #{HyperResource::VERSION}")
-        fc.headers.merge!(self.headers || {})
-        if ba=self.auth[:basic]
-          fc.basic_auth(*ba)
+        fc = Faraday.new(self.faraday_options.merge(:url => url)) do |builder|
+          builder.headers.merge!('User-Agent' => "HyperResource #{HyperResource::VERSION}")
+          builder.headers.merge!(self.headers || {})
+          if (ba = self.auth[:basic])
+            builder.basic_auth(*ba)
+          end
+
+          builder.request :url_encoded
+          builder.request :retry
+          builder.adapter Faraday.default_adapter
         end
+
         Thread.current[key] = fc
       end
 
