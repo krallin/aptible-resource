@@ -41,9 +41,9 @@ module Aptible
         return [] unless resource
         if resource.links.key?('next')
           options[:href] = resource.links['next'].href
-          resource.send(basename).entries + all(options)
+          resource.entries + all(options)
         else
-          resource.send(basename).entries
+          resource.entries
         end
       end
       # rubocop: enable AbcSize
@@ -126,7 +126,9 @@ module Aptible
           if (memoized = instance_variable_get("@#{relation}"))
             memoized
           elsif links[relation]
-            instance_variable_set("@#{relation}", links[relation].entries)
+            depaginated = self.class.all(href: links[relation].base_href,
+                                         headers: headers)
+            instance_variable_set("@#{relation}", depaginated)
           end
         end
       end

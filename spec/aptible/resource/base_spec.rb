@@ -31,7 +31,7 @@ describe Aptible::Resource::Base do
     let(:collection) { double 'Api' }
 
     before do
-      collection.stub(:mainframes) { [mainframe] }
+      collection.stub(:entries) { [mainframe] }
       collection.stub(:links) { Hash.new }
       Api::Mainframe.any_instance.stub(:find_by_url) { collection }
     end
@@ -51,7 +51,7 @@ describe Aptible::Resource::Base do
       Api::Mainframe.all(options)
     end
 
-    describe 'when paginated' do
+    context 'when paginated' do
       before do
         page = double('page')
         allow(page).to receive(:href).and_return(
@@ -210,6 +210,8 @@ describe Aptible::Resource::Base do
     before { Api.has_many :mainframes }
     before { subject.stub(:loaded) { true } }
     before { subject.stub(:links) { { mainframes: mainframes_link } } }
+    before { mainframes_link.stub(:entries) { [mainframe] } }
+    before { mainframes_link.stub(:base_href) { '/mainframes' } }
 
     describe '#create_#{relation}' do
       it 'should populate #errors in the event of an error' do
@@ -251,6 +253,14 @@ describe Aptible::Resource::Base do
       it 'should return the object in the event of successful creation' do
         mainframes_link.stub(:create) { mainframe }
         expect(subject.create_mainframe!({})).to eq mainframe
+      end
+    end
+
+    describe '#{relation}s' do
+      it 'should defer to self.class.all' do
+        expect(subject.class).to receive(:all).with(href: '/mainframes',
+                                                    headers: subject.headers)
+        subject.mainframes
       end
     end
   end
