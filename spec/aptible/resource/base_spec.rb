@@ -24,6 +24,12 @@ describe Aptible::Resource::Base do
       expect(Api::Mainframe).to receive(:find_by_url).with url, {}
       Api::Mainframe.find(42)
     end
+
+    it 'should call find_by_url with query params' do
+      url = '/mainframes/42?test=123'
+      expect(Api::Mainframe).to receive(:find_by_url).with url, test: 123
+      Api::Mainframe.find(42, test: 123)
+    end
   end
 
   describe '.all' do
