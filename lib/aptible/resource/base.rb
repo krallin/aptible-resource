@@ -58,7 +58,10 @@ module Aptible
       end
 
       def self.find(id, options = {})
-        find_by_url("#{collection_href}/#{id}", options)
+        params = options.except(:token, :root, :namespace, :headers)
+        params = normalize_params(params)
+        params = params.empty? ? '' : '?' + params.to_query
+        find_by_url("#{collection_href}/#{id}#{params}", options)
       end
 
       def self.find_by_url(url, options = {})
