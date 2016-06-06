@@ -224,11 +224,13 @@ module Aptible
       end
 
       def namespace
-        fail 'Resource server namespace must be defined by subclass'
+        fail 'Resource server namespace must be defined by subclass (for ' \
+             "#{self.class.name})"
       end
 
       def root_url
-        fail 'Resource server root URL must be defined by subclass'
+        fail 'Resource server root URL must be defined by subclass (for ' \
+             "#{self.class.name})"
       end
 
       def find_by_url(url_or_href)

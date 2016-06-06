@@ -131,7 +131,8 @@ describe Aptible::Resource::Base do
     end
 
     it 'should require root_url to be defined' do
-      expect { described_class.new }.to raise_error
+      expect { described_class.new }
+        .to raise_error(/by subclass.*Aptible::Resource::Base/)
     end
   end
 
