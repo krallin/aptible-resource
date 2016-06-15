@@ -100,7 +100,7 @@ module Aptible
 
       # rubocop:disable PredicateName
       def self.has_many(relation)
-        define_has_many_getter(relation)
+        define_has_many_getters(relation)
         define_has_many_setter(relation)
       end
       # rubocop:enable PredicateName
@@ -137,7 +137,9 @@ module Aptible
       end
       # rubocop:enable PredicateName
 
-      def self.define_has_many_getter(relation)
+      # rubocop:disable MethodLength
+      # rubocop:disable AbcSize
+      def self.define_has_many_getters(relation)
         define_method relation do
           get unless loaded
           if (memoized = instance_variable_get("@#{relation}"))
@@ -148,7 +150,17 @@ module Aptible
             instance_variable_set("@#{relation}", depaginated)
           end
         end
+
+        define_method "each_#{relation.to_s.singularize}" do |&block|
+          return if block.nil?
+          self.class.each_page(href: links[relation].base_href,
+                               headers: headers) do |page|
+            page.each { |entry| block.call entry }
+          end
+        end
       end
+      # rubocop:enable AbcSize
+      # rubocop:enable MethodLength
 
       def self.embeds_one(relation)
         define_method relation do

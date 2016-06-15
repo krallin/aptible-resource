@@ -25,19 +25,19 @@ describe Aptible::Resource::Base do
 
         next_url = urls[idx + 1]
         if next_url
-          link = double("Link from #{url} to #{next_url}")
-          allow(link).to receive(:href).and_return(next_url)
-          links['next'] = link
+          links['next'] = HyperResource::Link.new(nil, 'href' => next_url)
         end
 
         pages[url] = collection
       end
 
-      allow_any_instance_of(Api::Mainframe).to receive(:find_by_url) do |u, _|
-        calls << u
-        page = pages[u]
-        fail "Accessed unexpected URL #{u}" if page.nil?
-        page
+      [Api, Api::Mainframe].each do |klass|
+        allow_any_instance_of(klass).to receive(:find_by_url) do |u, _|
+          calls << u
+          page = pages[u]
+          fail "Accessed unexpected URL #{u}" if page.nil?
+          page
+        end
       end
     end
   end
@@ -321,10 +321,38 @@ describe Aptible::Resource::Base do
     end
 
     describe '#{relation}s' do
-      it 'should defer to self.class.all' do
-        expect(subject.class).to receive(:all).with(href: '/mainframes',
-                                                    headers: subject.headers)
-        subject.mainframes
+      include_context 'paginated collection'
+
+      it 'should return all records' do
+        records = subject.mainframes
+
+        expect(records.size).to eq(2)
+        expect(records.first).to eq('At /mainframes')
+        expect(records.second).to eq('At /mainframes?page=1')
+        expect(calls).to eq(urls)
+      end
+    end
+
+    describe 'each_#{relation}' do
+      include_context 'paginated collection'
+
+      it 'should iterate over all records' do
+        records = []
+        subject.each_mainframe { |mainframe| records << mainframe }
+
+        expect(records.size).to eq(2)
+        expect(records.first).to eq('At /mainframes')
+        expect(records.second).to eq('At /mainframes?page=1')
+        expect(calls).to eq(urls)
+      end
+
+      it 'should stop iterating when the consumer breaks' do
+        subject.each_mainframe { |_| break }
+        expect(calls).to eq([urls[0]])
+      end
+
+      it 'should not fail if not passed a block' do
+        subject.each_mainframe
       end
     end
   end
