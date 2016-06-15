@@ -38,18 +38,29 @@ module Aptible
         name.split('::').last.underscore.pluralize
       end
 
-      # rubocop:disable AbcSize
-      def self.all(options = {})
-        resource = find_by_url(options[:href] || collection_href, options)
-        return [] unless resource
-        if resource.links.key?('next')
-          options[:href] = resource.links['next'].href
-          resource.entries + all(options)
-        else
-          resource.entries
+      def self.each_page(options = {})
+        return unless block_given?
+        href = options[:href] || collection_href
+        while href
+          # TODO: Breaking here is consistent with the existing behavior of
+          # .all, but it essentially swallows an error if the page you're
+          # hitting happens to 404. This should probably be addressed in an
+          # effort to make this API client more strict.
+          resource = find_by_url(href, options)
+          break if resource.nil?
+
+          yield resource.entries
+
+          next_link = resource.links['next']
+          href = next_link ? next_link.href : nil
         end
       end
-      # rubocop: enable AbcSize
+
+      def self.all(options = {})
+        out = []
+        each_page(options) { |page| out.concat page }
+        out
+      end
 
       def self.where(options = {})
         params = options.except(:token, :root, :namespace, :headers)

@@ -9,6 +9,39 @@ describe Aptible::Resource::Base do
     error_response.stub(:status) { 403 }
   end
 
+  shared_context 'paginated collection' do
+    let(:urls) { ['/mainframes', '/mainframes?page=1'] }
+    let(:calls) { [] }
+
+    before do
+      pages = {}
+
+      urls.each_with_index do |url, idx|
+        collection = double("Collection for #{url}")
+        links = {}
+
+        allow(collection).to receive(:entries).and_return(["At #{url}"])
+        allow(collection).to receive(:links).and_return(links)
+
+        next_url = urls[idx + 1]
+        if next_url
+          link = double("Link from #{url} to #{next_url}")
+          allow(link).to receive(:href).and_return(next_url)
+          links['next'] = link
+        end
+
+        pages[url] = collection
+      end
+
+      allow_any_instance_of(Api::Mainframe).to receive(:find_by_url) do |u, _|
+        calls << u
+        page = pages[u]
+        fail "Accessed unexpected URL #{u}" if page.nil?
+        page
+      end
+    end
+  end
+
   subject { Api.new }
 
   describe '.collection_href' do
@@ -33,44 +66,69 @@ describe Aptible::Resource::Base do
   end
 
   describe '.all' do
-    let(:mainframe) { double 'Mainframe' }
-    let(:collection) { double 'Api' }
+    context 'when not paginated' do
+      let(:mainframe) { double 'Mainframe' }
+      let(:collection) { double 'Api' }
 
-    before do
-      collection.stub(:entries) { [mainframe] }
-      collection.stub(:links) { Hash.new }
-      Api::Mainframe.any_instance.stub(:find_by_url) { collection }
-    end
+      before do
+        collection.stub(:entries) { [mainframe] }
+        collection.stub(:links) { Hash.new }
+        Api::Mainframe.any_instance.stub(:find_by_url) { collection }
+      end
 
-    it 'should be an array' do
-      expect(Api::Mainframe.all).to be_a Array
-    end
+      it 'should be an array' do
+        expect(Api::Mainframe.all).to be_a Array
+      end
 
-    it 'should return the root collection' do
-      expect(Api::Mainframe.all).to eq [mainframe]
-    end
+      it 'should return the root collection' do
+        expect(Api::Mainframe.all).to eq [mainframe]
+      end
 
-    it 'should pass options to the HyperResource initializer' do
-      klass = Api::Mainframe
-      options = { token: 'token' }
-      expect(klass).to receive(:new).with(options).and_return klass.new
-      Api::Mainframe.all(options)
+      it 'should pass options to the HyperResource initializer' do
+        klass = Api::Mainframe
+        options = { token: 'token' }
+        expect(klass).to receive(:new).with(options).and_return klass.new
+        Api::Mainframe.all(options)
+      end
     end
 
     context 'when paginated' do
-      before do
-        page = double('page')
-        allow(page).to receive(:href).and_return(
-          '/next/page', '/next/page', '/next/page'
-        )
-        allow(collection).to receive(:links).and_return(
-          { 'next' => page }, { 'next' => page }, {}
-        )
+      include_context 'paginated collection'
+
+      it 'should collect entries from all pages' do
+        records = Api::Mainframe.all
+        expect(records.size).to eq(2)
+        expect(records.first).to eq('At /mainframes')
+        expect(records.second).to eq('At /mainframes?page=1')
+        expect(calls).to eq(urls)
       end
 
-      it 'should collect entries on all pages' do
-        expect(Api::Mainframe.all).to eq [mainframe] + [mainframe]
+      it "should return an empty list for a URL that doesn't exist" do
+        allow_any_instance_of(Api::Mainframe).to receive(:find_by_url) { nil }
+        expect(Api::Mainframe.all).to eq([])
       end
+    end
+  end
+
+  describe '.each_page' do
+    include_context 'paginated collection'
+
+    it 'should iterate over all pages' do
+      pages = 0
+      Api::Mainframe.each_page { pages += 1 }
+      expect(pages).to eq(2)
+      expect(calls).to eq(urls)
+    end
+
+    it 'should find all records' do
+      records = ['At /mainframes', 'At /mainframes?page=1']
+      Api::Mainframe.each_page { |p| expect(p).to eq([records.shift]) }
+      expect(calls).to eq(urls)
+    end
+
+    it 'should not access more URLs if the consumer breaks' do
+      Api::Mainframe.each_page { break }
+      expect(calls).to eq(['/mainframes'])
     end
   end
 
