@@ -38,18 +38,29 @@ module Aptible
         name.split('::').last.underscore.pluralize
       end
 
-      # rubocop:disable AbcSize
-      def self.all(options = {})
-        resource = find_by_url(options[:href] || collection_href, options)
-        return [] unless resource
-        if resource.links.key?('next')
-          options[:href] = resource.links['next'].href
-          resource.entries + all(options)
-        else
-          resource.entries
+      def self.each_page(options = {})
+        return unless block_given?
+        href = options[:href] || collection_href
+        while href
+          # TODO: Breaking here is consistent with the existing behavior of
+          # .all, but it essentially swallows an error if the page you're
+          # hitting happens to 404. This should probably be addressed in an
+          # effort to make this API client more strict.
+          resource = find_by_url(href, options)
+          break if resource.nil?
+
+          yield resource.entries
+
+          next_link = resource.links['next']
+          href = next_link ? next_link.href : nil
         end
       end
-      # rubocop: enable AbcSize
+
+      def self.all(options = {})
+        out = []
+        each_page(options) { |page| out.concat page }
+        out
+      end
 
       def self.where(options = {})
         params = options.except(:token, :root, :namespace, :headers)
@@ -89,7 +100,7 @@ module Aptible
 
       # rubocop:disable PredicateName
       def self.has_many(relation)
-        define_has_many_getter(relation)
+        define_has_many_getters(relation)
         define_has_many_setter(relation)
       end
       # rubocop:enable PredicateName
@@ -126,7 +137,9 @@ module Aptible
       end
       # rubocop:enable PredicateName
 
-      def self.define_has_many_getter(relation)
+      # rubocop:disable MethodLength
+      # rubocop:disable AbcSize
+      def self.define_has_many_getters(relation)
         define_method relation do
           get unless loaded
           if (memoized = instance_variable_get("@#{relation}"))
@@ -137,7 +150,17 @@ module Aptible
             instance_variable_set("@#{relation}", depaginated)
           end
         end
+
+        define_method "each_#{relation.to_s.singularize}" do |&block|
+          return if block.nil?
+          self.class.each_page(href: links[relation].base_href,
+                               headers: headers) do |page|
+            page.each { |entry| block.call entry }
+          end
+        end
       end
+      # rubocop:enable AbcSize
+      # rubocop:enable MethodLength
 
       def self.embeds_one(relation)
         define_method relation do
