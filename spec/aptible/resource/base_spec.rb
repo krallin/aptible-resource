@@ -1,5 +1,6 @@
 require 'spec_helper'
 
+# rubocop:disable Style/SignalException
 describe Aptible::Resource::Base do
   let(:hyperresource_exception) { HyperResource::ResponseError.new('403') }
   let(:error_response) { double 'Faraday::Response' }
@@ -388,3 +389,5 @@ describe Aptible::Resource::Base do
     end
   end
 end
+
+# rubocop:enable Style/SignalException

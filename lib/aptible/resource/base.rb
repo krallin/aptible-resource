@@ -15,6 +15,7 @@ require 'aptible/resource/boolean'
 # Open errors that make sense
 require 'aptible/resource/ext/faraday'
 
+# rubocop:disable Style/SignalException
 module Aptible
   module Resource
     # rubocop:disable ClassLength
@@ -79,11 +80,8 @@ module Aptible
         # REVIEW: Should exception be raised if return type mismatch?
         new(options).find_by_url(url)
       rescue HyperResource::ClientError => e
-        if e.response.status == 404
-          return nil
-        else
-          raise e
-        end
+        return nil if e.response.status == 404
+        raise e
       end
 
       def self.create!(params = {})
@@ -268,7 +266,10 @@ module Aptible
         end
       end
 
+      # rubocop:disable Style/Alias
       alias_method :_hyperresource_update, :update
+      # rubocop:enable Style/Alias
+
       def update!(params)
         _hyperresource_update(self.class.normalize_params(params))
       rescue HyperResource::ResponseError => e
@@ -288,7 +289,10 @@ module Aptible
         # HyperResource/Faraday choke on empty response bodies
         nil
       end
+
+      # rubocop:disable Style/Alias
       alias_method :destroy, :delete
+      # rubocop:enable Style/Alias
 
       # NOTE: The following does not update the object in-place
       def reload
@@ -306,3 +310,5 @@ module Aptible
     # rubocop:enable ClassLength
   end
 end
+
+# rubocop:enable Style/SignalException
