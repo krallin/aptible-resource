@@ -387,4 +387,139 @@ describe Aptible::Resource::Base do
       expect(subject.awesome?).to be true
     end
   end
+
+  context 'configuration' do
+    subject { Api.new(root: 'http://foo.com') }
+
+    def configure_new_coordinator(&block)
+      Aptible::Resource.configure do |config|
+        config.retry_coordinator_class = \
+          Class.new(Aptible::Resource::DefaultRetryCoordinator) do
+            instance_exec(&block)
+          end
+      end
+    end
+
+    context 'retry_coordinator_class' do
+      it 'should not retry if the proc returns false' do
+        configure_new_coordinator { define_method(:retry?) { |_e| false } }
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+        expect { subject.get.body }
+          .to raise_error(HyperResource::ClientError, /foo/)
+      end
+
+      it 'should retry if the proc returns true' do
+        configure_new_coordinator { define_method(:retry?) { |_e| true } }
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+        expect(subject.get.body).to eq('status' => 'ok')
+      end
+
+      it 'should not retry if the request succeeds' do
+        failures = 0
+
+        configure_new_coordinator do
+          define_method(:retry?) { |_e| failures += 1 || true }
+        end
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200).then
+          .to_return(body: { error: 'foo' }.to_json, status: 401)
+
+        expect(subject.get.body).to eq('status' => 'ok')
+
+        expect(failures).to eq(1)
+      end
+
+      it 'should not retry with the default proc' do
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+        expect { subject.get.body }
+          .to raise_error(HyperResource::ClientError, /foo/)
+      end
+
+      it 'should pass the resource in constructor and exception in method' do
+        resource = nil
+        exception = nil
+
+        configure_new_coordinator do
+          define_method(:initialize) { |r| resource = r }
+          define_method(:retry?) { |e| (exception = e) && false }
+        end
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401)
+
+        expect { subject.get.body }
+          .to raise_error(HyperResource::ClientError, /foo/)
+
+        expect(resource).to be_a(Api)
+        expect(exception).to be_a(HyperResource::ClientError)
+      end
+
+      it 'should let the coordinator change e.g. the request token' do
+        subject.headers['Authorization'] = 'Bearer foo'
+        retry_was_called = false
+
+        configure_new_coordinator do
+          define_method(:retry?) do |_e|
+            resource.headers['Authorization'] = 'Bearer bar'
+            retry_was_called = true
+          end
+        end
+
+        stub_request(:get, 'foo.com')
+          .with(headers: { 'Authorization' => /foo/ })
+          .to_return(body: { error: 'foo' }.to_json, status: 401)
+
+        stub_request(:get, 'foo.com')
+          .with(headers: { 'Authorization' => /bar/ })
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+        expect(subject.get.body).to eq('status' => 'ok')
+        expect(retry_was_called).to be_truthy
+      end
+
+      it 'should eventually fail even if the coordinator wants to retry' do
+        n = 0
+
+        configure_new_coordinator do
+          define_method(:retry?) { |_e| n += 1 || true }
+        end
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401)
+
+        expect { subject.get.body }
+          .to raise_error(HyperResource::ClientError, /foo/)
+
+        expect(n).to eq(HyperResource::Modules::HTTP::MAX_COORDINATOR_RETRIES)
+      end
+    end
+
+    context 'user_agent' do
+      it 'should update the user agent' do
+        Aptible::Resource.configure do |config|
+          config.user_agent = 'foo ua'
+        end
+
+        stub_request(:get, 'foo.com')
+          .with(headers: { 'User-Agent' => 'foo ua' })
+          .to_return(body: { status: 'ok' }.to_json, status: 200).then
+
+        expect(subject.get.body).to eq('status' => 'ok')
+      end
+    end
+  end
 end

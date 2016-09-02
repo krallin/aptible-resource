@@ -9,12 +9,6 @@ describe Aptible::Resource::Base do
   subject { Api.new(root: "http://#{domain}") }
 
   context 'with mock connections' do
-    around do |example|
-      WebMock.disable_net_connect!
-      example.run
-      WebMock.allow_net_connect!
-    end
-
     it 'should retry timeout errors' do
       stub_request(:get, domain)
         .to_timeout.then
@@ -34,6 +28,12 @@ describe Aptible::Resource::Base do
   end
 
   context 'without connections' do
+    around do |example|
+      WebMock.allow_net_connect!
+      example.run
+      WebMock.disable_net_connect!
+    end
+
     it 'default to 10 seconds of timeout and retry 3 times' do
       # This really relies on how exactly MRI implements Net::HTTP open timeouts
       skip 'MRI implementation-specific' if RUBY_PLATFORM == 'java'
