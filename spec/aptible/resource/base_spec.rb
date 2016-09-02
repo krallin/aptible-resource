@@ -1,6 +1,5 @@
 require 'spec_helper'
 
-# rubocop:disable Style/SignalException
 describe Aptible::Resource::Base do
   let(:hyperresource_exception) { HyperResource::ResponseError.new('403') }
   let(:error_response) { double 'Faraday::Response' }
@@ -36,7 +35,7 @@ describe Aptible::Resource::Base do
         allow_any_instance_of(klass).to receive(:find_by_url) do |u, _|
           calls << u
           page = pages[u]
-          fail "Accessed unexpected URL #{u}" if page.nil?
+          raise "Accessed unexpected URL #{u}" if page.nil?
           page
         end
       end
@@ -147,14 +146,14 @@ describe Aptible::Resource::Base do
     end
 
     it 'should populate #errors in the event of an error' do
-      mainframes_link.stub(:create) { fail hyperresource_exception }
+      mainframes_link.stub(:create) { raise hyperresource_exception }
       mainframe = Api::Mainframe.create
       expect(mainframe.errors.messages).to eq(base: 'Forbidden')
       expect(mainframe.errors.full_messages).to eq(['Forbidden'])
     end
 
     it 'should return a Base-classed resource on error' do
-      mainframes_link.stub(:create) { fail hyperresource_exception }
+      mainframes_link.stub(:create) { raise hyperresource_exception }
       expect(Api::Mainframe.create).to be_a Api::Mainframe
     end
 
@@ -172,7 +171,7 @@ describe Aptible::Resource::Base do
     before { mainframes_link.stub(:create) { mainframe } }
 
     it 'should pass through any exceptions' do
-      mainframes_link.stub(:create) { fail hyperresource_exception }
+      mainframes_link.stub(:create) { raise hyperresource_exception }
       expect do
         Api::Mainframe.create!
       end.to raise_error HyperResource::ResponseError
@@ -225,14 +224,14 @@ describe Aptible::Resource::Base do
 
   describe '#update' do
     it 'should populate #errors in the event of an error' do
-      HyperResource.any_instance.stub(:put) { fail hyperresource_exception }
+      HyperResource.any_instance.stub(:put) { raise hyperresource_exception }
       subject.update({})
       expect(subject.errors.messages).to eq(base: 'Forbidden')
       expect(subject.errors.full_messages).to eq(['Forbidden'])
     end
 
     it 'should return false in the event of an error' do
-      HyperResource.any_instance.stub(:put) { fail hyperresource_exception }
+      HyperResource.any_instance.stub(:put) { raise hyperresource_exception }
       expect(subject.update({})).to eq false
     end
 
@@ -244,7 +243,7 @@ describe Aptible::Resource::Base do
 
   describe '#update!' do
     it 'should populate #errors in the event of an error' do
-      HyperResource.any_instance.stub(:put) { fail hyperresource_exception }
+      HyperResource.any_instance.stub(:put) { raise hyperresource_exception }
       begin
         subject.update!({})
       rescue
@@ -256,7 +255,7 @@ describe Aptible::Resource::Base do
     end
 
     it 'should pass through any exceptions' do
-      HyperResource.any_instance.stub(:put) { fail hyperresource_exception }
+      HyperResource.any_instance.stub(:put) { raise hyperresource_exception }
       expect do
         subject.update!({})
       end.to raise_error HyperResource::ResponseError
@@ -280,19 +279,19 @@ describe Aptible::Resource::Base do
 
     describe '#create_#{relation}' do
       it 'should populate #errors in the event of an error' do
-        mainframes_link.stub(:create) { fail hyperresource_exception }
+        mainframes_link.stub(:create) { raise hyperresource_exception }
         mainframe = subject.create_mainframe({})
         expect(mainframe.errors.messages).to eq(base: 'Forbidden')
         expect(mainframe.errors.full_messages).to eq(['Forbidden'])
       end
 
       it 'should return a Base-classed resource on error' do
-        mainframes_link.stub(:create) { fail hyperresource_exception }
+        mainframes_link.stub(:create) { raise hyperresource_exception }
         expect(subject.create_mainframe.class).to eq Aptible::Resource::Base
       end
 
       it 'should have errors present on error' do
-        mainframes_link.stub(:create) { fail hyperresource_exception }
+        mainframes_link.stub(:create) { raise hyperresource_exception }
         expect(subject.create_mainframe.errors.any?).to be true
       end
 
@@ -309,7 +308,7 @@ describe Aptible::Resource::Base do
 
     describe '#create_#{relation}!' do
       it 'should pass through any exceptions' do
-        mainframes_link.stub(:create) { fail hyperresource_exception }
+        mainframes_link.stub(:create) { raise hyperresource_exception }
         expect do
           subject.create_mainframe!({})
         end.to raise_error HyperResource::ResponseError
@@ -389,5 +388,3 @@ describe Aptible::Resource::Base do
     end
   end
 end
-
-# rubocop:enable Style/SignalException

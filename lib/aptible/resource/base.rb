@@ -15,7 +15,6 @@ require 'aptible/resource/boolean'
 # Open errors that make sense
 require 'aptible/resource/ext/faraday'
 
-# rubocop:disable Style/SignalException
 module Aptible
   module Resource
     # rubocop:disable ClassLength
@@ -245,11 +244,11 @@ module Aptible
       end
 
       def namespace
-        fail 'Resource server namespace must be defined by subclass'
+        raise 'Resource server namespace must be defined by subclass'
       end
 
       def root_url
-        fail 'Resource server root URL must be defined by subclass'
+        raise 'Resource server root URL must be defined by subclass'
       end
 
       def find_by_url(url_or_href)
@@ -310,5 +309,3 @@ module Aptible
     # rubocop:enable ClassLength
   end
 end
-
-# rubocop:enable Style/SignalException
