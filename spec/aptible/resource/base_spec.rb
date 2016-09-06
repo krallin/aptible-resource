@@ -271,7 +271,6 @@ describe Aptible::Resource::Base do
     let(:mainframe) { Api::Mainframe.new }
     let(:mainframes_link) { HyperResource::Link.new(href: '/mainframes') }
 
-    before { Api.has_many :mainframes }
     before { subject.stub(:loaded) { true } }
     before { subject.stub(:links) { { mainframes: mainframes_link } } }
     before { mainframes_link.stub(:entries) { [mainframe] } }
@@ -469,12 +468,13 @@ describe Aptible::Resource::Base do
       end
 
       it 'should let the coordinator change e.g. the request token' do
-        subject.headers['Authorization'] = 'Bearer foo'
+        subject.token = 'foo'
         retry_was_called = false
 
         configure_new_coordinator do
           define_method(:retry?) do |_e|
-            resource.headers['Authorization'] = 'Bearer bar'
+            resource.token = 'bar'
+            # resource.headers['Authorization'] = 'Bearer bar'
             retry_was_called = true
           end
         end
@@ -516,10 +516,69 @@ describe Aptible::Resource::Base do
 
         stub_request(:get, 'foo.com')
           .with(headers: { 'User-Agent' => 'foo ua' })
-          .to_return(body: { status: 'ok' }.to_json, status: 200).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
 
         expect(subject.get.body).to eq('status' => 'ok')
       end
+    end
+  end
+
+  context 'token' do
+    subject { Api.new(root: 'http://foo.com', token: 'bar') }
+
+    before do
+      stub_request(:get, 'foo.com/')
+        .with(headers: { 'Authorization' => /Bearer (bar|foo)/ })
+        .to_return(body: {
+          _links: { some: { href: 'http://foo.com/some' },
+                    mainframes: { href: 'http://foo.com/mainframes' } },
+          _embedded: { best_mainframe: { _type: 'mainframe', status: 'ok' } }
+        }.to_json, status: 200)
+
+      stub_request(:get, 'foo.com/some')
+        .with(headers: { 'Authorization' => /Bearer (bar|foo)/ })
+        .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+      stub_request(:get, 'foo.com/mainframes')
+        .with(headers: { 'Authorization' => /Bearer (bar|foo)/ })
+        .to_return(body: { _embedded: {
+          mainframes: [{ status: 'ok' }]
+        } }.to_json, status: 200)
+    end
+
+    it 'should persist the Authorization header when following links' do
+      expect(subject.some.get.body).to eq('status' => 'ok')
+    end
+
+    it 'should persist the token when following links' do
+      expect(subject.some.token).to eq('bar')
+      expect(subject.some.headers['Authorization']).to eq('Bearer bar')
+    end
+
+    it 'should set the Authorization header when setting the token' do
+      subject.token = 'foo'
+
+      expect(subject.some.token).to eq('foo')
+      expect(subject.some.headers['Authorization']).to eq('Bearer foo')
+    end
+
+    it 'should persist the token and set the Authorization header when ' \
+       'initializing from resource' do
+      subject.get
+      r = Api.new(subject)
+
+      expect(r.token).to eq('bar')
+      expect(r.headers['Authorization']).to eq('Bearer bar')
+    end
+
+    it 'should persist the token when accessing a related collection' do
+      m = subject.mainframes.first
+      expect(m.token).to eq('bar')
+    end
+
+    it 'should persist the token when accessing a named embedded object' do
+      m = subject.best_mainframe
+      expect(m.token).to eq('bar')
     end
   end
 end
