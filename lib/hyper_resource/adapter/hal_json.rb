@@ -48,6 +48,7 @@ class HyperResource
             if collection.is_a? Hash
               r = rc.new(:root => rsrc.root,
                          :headers => rsrc.headers,
+                         :token => rsrc.token,
                          :namespace => rsrc.namespace)
               r.body = collection
               r = classify(collection, r)
@@ -56,6 +57,7 @@ class HyperResource
               objs[name] = collection.map do |obj|
                 r = rc.new(:root => rsrc.root,
                            :headers => rsrc.headers,
+                           :token => rsrc.token,
                            :namespace => rsrc.namespace)
                 r.body = obj
                 r = classify(obj, r)
@@ -73,8 +75,10 @@ class HyperResource
           klass = rsrc.class.namespaced_class(type_name, namespace)
 
           if klass
+            # TODO: Why does this not use klass.new(rsrc)?
             rsrc = klass.new(:root => rsrc.root,
                              :headers => rsrc.headers,
+                             :token => rsrc.token,
                              :namespace => rsrc.namespace)
             rsrc.body = resp
           end

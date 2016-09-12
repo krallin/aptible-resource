@@ -15,4 +15,9 @@ require 'aptible/resource'
 
 # Webmock
 require 'webmock/rspec'
-WebMock.allow_net_connect!
+WebMock.disable_net_connect!
+
+RSpec.configure do |config|
+  config.before { Aptible::Resource.configuration.reset }
+  config.before { WebMock.reset! }
+end

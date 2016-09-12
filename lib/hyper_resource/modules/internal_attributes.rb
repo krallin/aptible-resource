@@ -38,6 +38,7 @@ module HyperResource::Modules
           :namespace,
           :adapter,
           :faraday_options,
+          :token,
 
           :request,
           :response,

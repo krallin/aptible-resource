@@ -199,6 +199,7 @@ public
                    :headers         => self.headers,
                    :namespace       => self.namespace,
                    :faraday_options => self.faraday_options,
+                   :token           => self.token,
                    :href            => href)
   end
 

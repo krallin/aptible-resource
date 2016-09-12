@@ -1,6 +1,5 @@
 require 'spec_helper'
 
-# rubocop:disable Style/SignalException
 describe Aptible::Resource::Base do
   let(:hyperresource_exception) { HyperResource::ResponseError.new('403') }
   let(:error_response) { double 'Faraday::Response' }
@@ -36,7 +35,7 @@ describe Aptible::Resource::Base do
         allow_any_instance_of(klass).to receive(:find_by_url) do |u, _|
           calls << u
           page = pages[u]
-          fail "Accessed unexpected URL #{u}" if page.nil?
+          raise "Accessed unexpected URL #{u}" if page.nil?
           page
         end
       end
@@ -147,14 +146,14 @@ describe Aptible::Resource::Base do
     end
 
     it 'should populate #errors in the event of an error' do
-      mainframes_link.stub(:create) { fail hyperresource_exception }
+      mainframes_link.stub(:create) { raise hyperresource_exception }
       mainframe = Api::Mainframe.create
       expect(mainframe.errors.messages).to eq(base: 'Forbidden')
       expect(mainframe.errors.full_messages).to eq(['Forbidden'])
     end
 
     it 'should return a Base-classed resource on error' do
-      mainframes_link.stub(:create) { fail hyperresource_exception }
+      mainframes_link.stub(:create) { raise hyperresource_exception }
       expect(Api::Mainframe.create).to be_a Api::Mainframe
     end
 
@@ -172,7 +171,7 @@ describe Aptible::Resource::Base do
     before { mainframes_link.stub(:create) { mainframe } }
 
     it 'should pass through any exceptions' do
-      mainframes_link.stub(:create) { fail hyperresource_exception }
+      mainframes_link.stub(:create) { raise hyperresource_exception }
       expect do
         Api::Mainframe.create!
       end.to raise_error HyperResource::ResponseError
@@ -225,14 +224,14 @@ describe Aptible::Resource::Base do
 
   describe '#update' do
     it 'should populate #errors in the event of an error' do
-      HyperResource.any_instance.stub(:put) { fail hyperresource_exception }
+      HyperResource.any_instance.stub(:put) { raise hyperresource_exception }
       subject.update({})
       expect(subject.errors.messages).to eq(base: 'Forbidden')
       expect(subject.errors.full_messages).to eq(['Forbidden'])
     end
 
     it 'should return false in the event of an error' do
-      HyperResource.any_instance.stub(:put) { fail hyperresource_exception }
+      HyperResource.any_instance.stub(:put) { raise hyperresource_exception }
       expect(subject.update({})).to eq false
     end
 
@@ -244,7 +243,7 @@ describe Aptible::Resource::Base do
 
   describe '#update!' do
     it 'should populate #errors in the event of an error' do
-      HyperResource.any_instance.stub(:put) { fail hyperresource_exception }
+      HyperResource.any_instance.stub(:put) { raise hyperresource_exception }
       begin
         subject.update!({})
       rescue
@@ -256,7 +255,7 @@ describe Aptible::Resource::Base do
     end
 
     it 'should pass through any exceptions' do
-      HyperResource.any_instance.stub(:put) { fail hyperresource_exception }
+      HyperResource.any_instance.stub(:put) { raise hyperresource_exception }
       expect do
         subject.update!({})
       end.to raise_error HyperResource::ResponseError
@@ -272,7 +271,6 @@ describe Aptible::Resource::Base do
     let(:mainframe) { Api::Mainframe.new }
     let(:mainframes_link) { HyperResource::Link.new(href: '/mainframes') }
 
-    before { Api.has_many :mainframes }
     before { subject.stub(:loaded) { true } }
     before { subject.stub(:links) { { mainframes: mainframes_link } } }
     before { mainframes_link.stub(:entries) { [mainframe] } }
@@ -280,19 +278,19 @@ describe Aptible::Resource::Base do
 
     describe '#create_#{relation}' do
       it 'should populate #errors in the event of an error' do
-        mainframes_link.stub(:create) { fail hyperresource_exception }
+        mainframes_link.stub(:create) { raise hyperresource_exception }
         mainframe = subject.create_mainframe({})
         expect(mainframe.errors.messages).to eq(base: 'Forbidden')
         expect(mainframe.errors.full_messages).to eq(['Forbidden'])
       end
 
       it 'should return a Base-classed resource on error' do
-        mainframes_link.stub(:create) { fail hyperresource_exception }
+        mainframes_link.stub(:create) { raise hyperresource_exception }
         expect(subject.create_mainframe.class).to eq Aptible::Resource::Base
       end
 
       it 'should have errors present on error' do
-        mainframes_link.stub(:create) { fail hyperresource_exception }
+        mainframes_link.stub(:create) { raise hyperresource_exception }
         expect(subject.create_mainframe.errors.any?).to be true
       end
 
@@ -309,7 +307,7 @@ describe Aptible::Resource::Base do
 
     describe '#create_#{relation}!' do
       it 'should pass through any exceptions' do
-        mainframes_link.stub(:create) { fail hyperresource_exception }
+        mainframes_link.stub(:create) { raise hyperresource_exception }
         expect do
           subject.create_mainframe!({})
         end.to raise_error HyperResource::ResponseError
@@ -388,6 +386,199 @@ describe Aptible::Resource::Base do
       expect(subject.awesome?).to be true
     end
   end
-end
 
-# rubocop:enable Style/SignalException
+  context 'configuration' do
+    subject { Api.new(root: 'http://foo.com') }
+
+    def configure_new_coordinator(&block)
+      Aptible::Resource.configure do |config|
+        config.retry_coordinator_class = \
+          Class.new(Aptible::Resource::DefaultRetryCoordinator) do
+            instance_exec(&block)
+          end
+      end
+    end
+
+    context 'retry_coordinator_class' do
+      it 'should not retry if the proc returns false' do
+        configure_new_coordinator { define_method(:retry?) { |_e| false } }
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+        expect { subject.get.body }
+          .to raise_error(HyperResource::ClientError, /foo/)
+      end
+
+      it 'should retry if the proc returns true' do
+        configure_new_coordinator { define_method(:retry?) { |_e| true } }
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+        expect(subject.get.body).to eq('status' => 'ok')
+      end
+
+      it 'should not retry if the request succeeds' do
+        failures = 0
+
+        configure_new_coordinator do
+          define_method(:retry?) { |_e| failures += 1 || true }
+        end
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200).then
+          .to_return(body: { error: 'foo' }.to_json, status: 401)
+
+        expect(subject.get.body).to eq('status' => 'ok')
+
+        expect(failures).to eq(1)
+      end
+
+      it 'should not retry with the default proc' do
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+        expect { subject.get.body }
+          .to raise_error(HyperResource::ClientError, /foo/)
+      end
+
+      it 'should pass the resource in constructor and exception in method' do
+        resource = nil
+        exception = nil
+
+        configure_new_coordinator do
+          define_method(:initialize) { |r| resource = r }
+          define_method(:retry?) { |e| (exception = e) && false }
+        end
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401)
+
+        expect { subject.get.body }
+          .to raise_error(HyperResource::ClientError, /foo/)
+
+        expect(resource).to be_a(Api)
+        expect(exception).to be_a(HyperResource::ClientError)
+      end
+
+      it 'should let the coordinator change e.g. the request token' do
+        subject.token = 'foo'
+        retry_was_called = false
+
+        configure_new_coordinator do
+          define_method(:retry?) do |_e|
+            resource.token = 'bar'
+            # resource.headers['Authorization'] = 'Bearer bar'
+            retry_was_called = true
+          end
+        end
+
+        stub_request(:get, 'foo.com')
+          .with(headers: { 'Authorization' => /foo/ })
+          .to_return(body: { error: 'foo' }.to_json, status: 401)
+
+        stub_request(:get, 'foo.com')
+          .with(headers: { 'Authorization' => /bar/ })
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+        expect(subject.get.body).to eq('status' => 'ok')
+        expect(retry_was_called).to be_truthy
+      end
+
+      it 'should eventually fail even if the coordinator wants to retry' do
+        n = 0
+
+        configure_new_coordinator do
+          define_method(:retry?) { |_e| n += 1 || true }
+        end
+
+        stub_request(:get, 'foo.com')
+          .to_return(body: { error: 'foo' }.to_json, status: 401)
+
+        expect { subject.get.body }
+          .to raise_error(HyperResource::ClientError, /foo/)
+
+        expect(n).to eq(HyperResource::Modules::HTTP::MAX_COORDINATOR_RETRIES)
+      end
+    end
+
+    context 'user_agent' do
+      it 'should update the user agent' do
+        Aptible::Resource.configure do |config|
+          config.user_agent = 'foo ua'
+        end
+
+        stub_request(:get, 'foo.com')
+          .with(headers: { 'User-Agent' => 'foo ua' })
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+        expect(subject.get.body).to eq('status' => 'ok')
+      end
+    end
+  end
+
+  context 'token' do
+    subject { Api.new(root: 'http://foo.com', token: 'bar') }
+
+    before do
+      stub_request(:get, 'foo.com/')
+        .with(headers: { 'Authorization' => /Bearer (bar|foo)/ })
+        .to_return(body: {
+          _links: { some: { href: 'http://foo.com/some' },
+                    mainframes: { href: 'http://foo.com/mainframes' } },
+          _embedded: { best_mainframe: { _type: 'mainframe', status: 'ok' } }
+        }.to_json, status: 200)
+
+      stub_request(:get, 'foo.com/some')
+        .with(headers: { 'Authorization' => /Bearer (bar|foo)/ })
+        .to_return(body: { status: 'ok' }.to_json, status: 200)
+
+      stub_request(:get, 'foo.com/mainframes')
+        .with(headers: { 'Authorization' => /Bearer (bar|foo)/ })
+        .to_return(body: { _embedded: {
+          mainframes: [{ status: 'ok' }]
+        } }.to_json, status: 200)
+    end
+
+    it 'should persist the Authorization header when following links' do
+      expect(subject.some.get.body).to eq('status' => 'ok')
+    end
+
+    it 'should persist the token when following links' do
+      expect(subject.some.token).to eq('bar')
+      expect(subject.some.headers['Authorization']).to eq('Bearer bar')
+    end
+
+    it 'should set the Authorization header when setting the token' do
+      subject.token = 'foo'
+
+      expect(subject.some.token).to eq('foo')
+      expect(subject.some.headers['Authorization']).to eq('Bearer foo')
+    end
+
+    it 'should persist the token and set the Authorization header when ' \
+       'initializing from resource' do
+      subject.get
+      r = Api.new(subject)
+
+      expect(r.token).to eq('bar')
+      expect(r.headers['Authorization']).to eq('Bearer bar')
+    end
+
+    it 'should persist the token when accessing a related collection' do
+      m = subject.mainframes.first
+      expect(m.token).to eq('bar')
+    end
+
+    it 'should persist the token when accessing a named embedded object' do
+      m = subject.best_mainframe
+      expect(m.token).to eq('bar')
+    end
+  end
+end

@@ -6,13 +6,16 @@ require 'digest/md5'
 class HyperResource
   module Modules
     module HTTP
+      # A (high) limit to the number of retries a coordinator can ask for. This
+      # is to avoid breaking things if we have a buggy coordinator that retries
+      # things over and over again.
+      MAX_COORDINATOR_RETRIES = 16
 
       ## Loads and returns the resource pointed to by +href+.  The returned
       ## resource will be blessed into its "proper" class, if
       ## +self.class.namespace != nil+.
       def get
-        self.response = faraday_connection.get(self.href || '')
-        finish_up
+        execute_request { faraday_connection.get(href || '') }
       end
 
       ## By default, calls +post+ with the given arguments. Override to
@@ -23,12 +26,11 @@ class HyperResource
 
       ## POSTs the given attributes to this resource's href, and returns
       ## the response resource.
-      def post(attrs=nil)
-        attrs || self.attributes
-        self.response = faraday_connection.post do |req|
-          req.body = adapter.serialize(attrs)
+      def post(attrs = nil)
+        attrs ||= attributes
+        execute_request do
+          faraday_connection.post { |req| req.body = adapter.serialize(attrs) }
         end
-        finish_up
       end
 
       ## By default, calls +put+ with the given arguments.  Override to
@@ -40,48 +42,39 @@ class HyperResource
       ## PUTs this resource's attributes to this resource's href, and returns
       ## the response resource.  If attributes are given, +put+ uses those
       ## instead.
-      def put(attrs=nil)
-        attrs ||= self.attributes
-        self.response = faraday_connection.put do |req|
-          req.body = adapter.serialize(attrs)
+      def put(attrs = nil)
+        attrs ||= attributes
+        execute_request do
+          faraday_connection.put { |req| req.body = adapter.serialize(attrs) }
         end
-        finish_up
       end
 
       ## PATCHes this resource's changed attributes to this resource's href,
       ## and returns the response resource.  If attributes are given, +patch+
       ## uses those instead.
-      def patch(attrs=nil)
-        attrs ||= self.attributes.changed_attributes
-        self.response = faraday_connection.patch do |req|
-          req.body = adapter.serialize(attrs)
+      def patch(attrs = nil)
+        attrs ||= attributes.changed_attributes
+        execute_request do
+          faraday_connection.patch { |req| req.body = adapter.serialize(attrs) }
         end
-        finish_up
       end
 
       ## DELETEs this resource's href, and returns the response resource.
       def delete
-        self.response = faraday_connection.delete
-        finish_up
+        execute_request { faraday_connection.delete }
       end
 
       ## Returns a raw Faraday connection to this resource's URL, with proper
-      ## headers (including auth).  Threadsafe.
-      def faraday_connection(url=nil)
-        url ||= URI.join(self.root, self.href)
-        key = Digest::MD5.hexdigest({
-          'faraday_connection' => {
-            'url' => url,
-            'headers' => self.headers,
-            'ba' => self.auth[:basic]
-          }
-        }.to_json)
-        return Thread.current[key] if Thread.current[key]
+      ## headers (including auth).
+      def faraday_connection(url = nil)
+        url ||= URI.join(root, href)
 
-        fc = Faraday.new(self.faraday_options.merge(:url => url)) do |builder|
-          builder.headers.merge!('User-Agent' => "HyperResource #{HyperResource::VERSION}")
-          builder.headers.merge!(self.headers || {})
-          if (ba = self.auth[:basic])
+        Faraday.new(faraday_options.merge(url: url)) do |builder|
+          builder.headers.merge!(headers || {})
+          builder.headers['User-Agent'] = Aptible::Resource.configuration
+                                                           .user_agent
+
+          if (ba = auth[:basic])
             builder.basic_auth(*ba)
           end
 
@@ -89,49 +82,66 @@ class HyperResource
           builder.request :retry
           builder.adapter Faraday.default_adapter
         end
-
-        Thread.current[key] = fc
       end
 
-    private
+      private
 
-      def finish_up
+      def execute_request
+        raise 'execute_request needs a block!' unless block_given?
+        retry_coordinator = Aptible::Resource.configuration
+                                             .retry_coordinator_class.new(self)
+
+        n_retry = 0
         begin
-          self.body = self.adapter.deserialize(self.response.body) unless self.response.body.nil?
+          finish_up(yield)
+        rescue HyperResource::ResponseError => e
+          n_retry += 1
+          raise e if n_retry > MAX_COORDINATOR_RETRIES
+          retry if retry_coordinator.retry?(e)
+          raise e
+        end
+      end
+
+      def finish_up(response)
+        begin
+          body = adapter.deserialize(response.body) unless response.body.nil?
         rescue StandardError => e
           raise HyperResource::ResponseError.new(
-            "Error when deserializing response body",
-            :response => self.response,
-            :cause => e
+            'Error when deserializing response body',
+            response: response,
+            cause: e
           )
         end
 
-        self.adapter.apply(self.body, self)
-        self.loaded = true
-
-        status = self.response.status
+        status = response.status
         if status / 100 == 2
-          return to_response_class
         elsif status / 100 == 3
-          ## TODO redirect logic?
+          raise 'HyperResource does not handle redirects'
         elsif status / 100 == 4
           raise HyperResource::ClientError.new(status.to_s,
-                                               :response => self.response,
-                                               :body => self.body)
+                                               response: response,
+                                               body: body)
         elsif status / 100 == 5
           raise HyperResource::ServerError.new(status.to_s,
-                                               :response => self.response,
-                                               :body => self.body)
+                                               response: response,
+                                               body: body)
 
         else ## 1xx? really?
           raise HyperResource::ResponseError.new("Got status #{status}, wtf?",
-                                                 :response => self.response,
-                                                 :body => self.body)
+                                                 response: response,
+                                                 body: body)
 
         end
-      end
 
+        # Unfortunately, HyperResource insists on having response and body
+        # be attributes..
+        self.response = response
+        self.body = body
+        adapter.apply(body, self)
+        self.loaded = true
+
+        to_response_class
+      end
     end
   end
 end
-

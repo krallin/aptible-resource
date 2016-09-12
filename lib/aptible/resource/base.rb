@@ -15,12 +15,12 @@ require 'aptible/resource/boolean'
 # Open errors that make sense
 require 'aptible/resource/ext/faraday'
 
-# rubocop:disable Style/SignalException
 module Aptible
   module Resource
     # rubocop:disable ClassLength
     class Base < HyperResource
-      attr_accessor :token, :errors
+      attr_accessor :errors
+      attr_reader :token
 
       def self.get_data_type_from_response(response)
         return nil unless response && response.body
@@ -144,6 +144,7 @@ module Aptible
             memoized
           elsif links[relation]
             depaginated = self.class.all(href: links[relation].base_href,
+                                         token: token,
                                          headers: headers)
             instance_variable_set("@#{relation}", depaginated)
           end
@@ -152,6 +153,7 @@ module Aptible
         define_method "each_#{relation.to_s.singularize}" do |&block|
           return if block.nil?
           self.class.each_page(href: links[relation].base_href,
+                               token: token,
                                headers: headers) do |page|
             page.each { |entry| block.call entry }
           end
@@ -223,12 +225,11 @@ module Aptible
       end
 
       def initialize(options = {})
-        if options.is_a?(Hash)
-          self.token = options[:token]
-          populate_default_options!(options)
-        end
+        return super(options) unless options.is_a?(Hash)
 
+        populate_default_options!(options)
         super(options)
+        self.token = options[:token] if options[:token]
       end
 
       def populate_default_options!(options)
@@ -236,8 +237,11 @@ module Aptible
         options[:namespace] ||= namespace
         options[:headers] ||= {}
         options[:headers]['Content-Type'] = 'application/json'
-        return unless options[:token]
-        options[:headers]['Authorization'] = "Bearer #{bearer_token}"
+      end
+
+      def token=(val)
+        @token = val
+        headers['Authorization'] = "Bearer #{bearer_token}"
       end
 
       def adapter
@@ -245,11 +249,11 @@ module Aptible
       end
 
       def namespace
-        fail 'Resource server namespace must be defined by subclass'
+        raise 'Resource server namespace must be defined by subclass'
       end
 
       def root_url
-        fail 'Resource server root URL must be defined by subclass'
+        raise 'Resource server root URL must be defined by subclass'
       end
 
       def find_by_url(url_or_href)
@@ -296,7 +300,7 @@ module Aptible
 
       # NOTE: The following does not update the object in-place
       def reload
-        self.class.find_by_url(href, headers: headers)
+        self.class.find_by_url(href, token: token, headers: headers)
       end
 
       def errors
@@ -310,5 +314,3 @@ module Aptible
     # rubocop:enable ClassLength
   end
 end
-
-# rubocop:enable Style/SignalException
