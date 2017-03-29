@@ -149,7 +149,7 @@ describe Aptible::Resource::Base do
           .to_timeout.then
           .to_return(body: json_body)
 
-        expect { subject.post }.to raise_error(Faraday::TimeoutError)
+        expect { subject.post }.to raise_error(Faraday::ConnectionFailed)
       end
     end
 
