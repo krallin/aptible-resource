@@ -8,18 +8,18 @@ describe Aptible::Resource::Base do
 
   subject { Api.new(root: "http://#{domain}") }
 
+  let(:sleeps) { [] }
+
+  def time_slept
+    sleeps.sum
+  end
+
+  before do
+    allow_any_instance_of(Aptible::Resource::DefaultRetryCoordinator)
+      .to receive(:sleep) { |_, t| sleeps << t }
+  end
+
   context 'server errors' do
-    let(:sleeps) { [] }
-
-    def time_slept
-      sleeps.sum
-    end
-
-    before do
-      allow_any_instance_of(Aptible::Resource::DefaultRetryCoordinator)
-        .to receive(:sleep) { |_, t| sleeps << t }
-    end
-
     shared_examples 'retry examples' do |method|
       context "#{method.to_s.upcase} requests" do
         it 'should retry a server error' do
@@ -54,6 +54,15 @@ describe Aptible::Resource::Base do
           expect { subject.public_send(method) }
             .to raise_error(HyperResource::ClientError)
         end
+
+        it 'should not retry parse errors' do
+          stub_request(method, domain)
+            .to_return(body: 'boo', status: 400).then
+            .to_return(body: json_body)
+
+          expect { subject.public_send(method) }
+            .to raise_error(HyperResource::ResponseError)
+        end
       end
     end
 
@@ -73,6 +82,28 @@ describe Aptible::Resource::Base do
         expect(time_slept).to eq(0)
       end
     end
+
+    context 'retry coordinator overrides' do
+      before do
+        stub_request(:get, domain)
+          .to_return(body: { error: 'foo' }.to_json, status: 500).then
+          .to_return(body: { status: 'ok' }.to_json, status: 200)
+      end
+
+      it 'should be overridden by override_retry_coordinator_class ' do
+        expect do
+          klass = Aptible::Resource::NullRetryCoordinator
+          Aptible::Resource.override_retry_coordinator_class(klass) do
+            subject.get
+          end
+        end.to raise_error(HyperResource::ServerError)
+      end
+
+      it 'should disable retries with override_retry_coordinator_class' do
+        expect { Aptible::Resource.without_retry { subject.get } }
+          .to raise_error(HyperResource::ServerError)
+      end
+    end
   end
 
   context 'network errors' do
@@ -81,6 +112,33 @@ describe Aptible::Resource::Base do
         stub_request(:get, domain)
           .to_timeout.then
           .to_timeout.then
+          .to_return(body: json_body)
+
+        expect(subject.get.body).to eq(body)
+      end
+
+      it 'should retry timeout errors (Errno::ETIMEDOUT)' do
+        stub_request(:get, domain)
+          .to_raise(Errno::ETIMEDOUT).then
+          .to_raise(Errno::ETIMEDOUT).then
+          .to_return(body: json_body)
+
+        expect(subject.get.body).to eq(body)
+      end
+
+      it 'should retry timeout errors (Net::OpenTimeout)' do
+        stub_request(:get, domain)
+          .to_raise(Net::OpenTimeout).then
+          .to_raise(Net::OpenTimeout).then
+          .to_return(body: json_body)
+
+        expect(subject.get.body).to eq(body)
+      end
+
+      it 'should retry connection errors' do
+        stub_request(:get, domain)
+          .to_raise(Errno::ECONNREFUSED).then
+          .to_raise(Errno::ECONNREFUSED).then
           .to_return(body: json_body)
 
         expect(subject.get.body).to eq(body)
@@ -102,17 +160,18 @@ describe Aptible::Resource::Base do
         WebMock.disable_net_connect!
       end
 
-      it 'default to 10 seconds of timeout and retry 3 times' do
+      it 'default to 10 seconds of timeout and retries 4 times' do
         # This really relies on how exactly MRI implements Net::HTTP open
         # timeouts
         skip 'MRI implementation-specific' if RUBY_PLATFORM == 'java'
 
         expect(Timeout).to receive(:timeout)
           .with(10, Net::OpenTimeout)
-          .exactly(3).times
+          .exactly(4).times
           .and_raise(Net::OpenTimeout)
 
-        expect { subject.all }.to raise_error(Faraday::Error::TimeoutError)
+        expect { subject.all }.to raise_error(Faraday::ConnectionFailed)
+        expect(sleeps.size).to eq(3)
       end
     end
   end

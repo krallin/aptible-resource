@@ -78,8 +78,8 @@ class HyperResource
             builder.basic_auth(*ba)
           end
 
+          builder.use WrapErrors # This has to be first!
           builder.request :url_encoded
-          builder.request :retry
           builder.adapter Faraday.default_adapter
         end
       end
@@ -88,17 +88,21 @@ class HyperResource
 
       def execute_request
         raise 'execute_request needs a block!' unless block_given?
-        retry_coordinator = Aptible::Resource.configuration
-                                             .retry_coordinator_class.new(self)
+        retry_coordinator = Aptible::Resource.retry_coordinator_class.new(self)
 
         n_retry = 0
+
         begin
-          finish_up(yield)
-        rescue HyperResource::ResponseError => e
+          begin
+            finish_up(yield)
+          rescue HyperResource::ResponseError => e
+            raise WrapErrors::WrappedError.new(e.response.env.method, e)
+          end
+        rescue WrapErrors::WrappedError => e
           n_retry += 1
-          raise e if n_retry > MAX_COORDINATOR_RETRIES
-          retry if retry_coordinator.retry?(e)
-          raise e
+          raise e.err if n_retry > MAX_COORDINATOR_RETRIES
+          retry if retry_coordinator.retry?(e.method, e.err)
+          raise e.err
         end
       end
 

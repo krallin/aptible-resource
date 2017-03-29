@@ -413,7 +413,7 @@ describe Aptible::Resource::Base do
 
     context 'retry_coordinator_class' do
       it 'should not retry if the proc returns false' do
-        configure_new_coordinator { define_method(:retry?) { |_e| false } }
+        configure_new_coordinator { define_method(:retry?) { |_, _e| false } }
 
         stub_request(:get, 'foo.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401).then
@@ -424,7 +424,7 @@ describe Aptible::Resource::Base do
       end
 
       it 'should retry if the proc returns true' do
-        configure_new_coordinator { define_method(:retry?) { |_e| true } }
+        configure_new_coordinator { define_method(:retry?) { |_, _e| true } }
 
         stub_request(:get, 'foo.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401).then
@@ -438,7 +438,7 @@ describe Aptible::Resource::Base do
         failures = 0
 
         configure_new_coordinator do
-          define_method(:retry?) { |_e| failures += 1 || true }
+          define_method(:retry?) { |_, _e| failures += 1 || true }
         end
 
         stub_request(:get, 'foo.com')
@@ -466,7 +466,7 @@ describe Aptible::Resource::Base do
 
         configure_new_coordinator do
           define_method(:initialize) { |r| resource = r }
-          define_method(:retry?) { |e| (exception = e) && false }
+          define_method(:retry?) { |_, e| (exception = e) && false }
         end
 
         stub_request(:get, 'foo.com')
@@ -484,7 +484,7 @@ describe Aptible::Resource::Base do
         retry_was_called = false
 
         configure_new_coordinator do
-          define_method(:retry?) do |_e|
+          define_method(:retry?) do |_, _e|
             resource.token = 'bar'
             # resource.headers['Authorization'] = 'Bearer bar'
             retry_was_called = true
@@ -507,7 +507,7 @@ describe Aptible::Resource::Base do
         n = 0
 
         configure_new_coordinator do
-          define_method(:retry?) { |_e| n += 1 || true }
+          define_method(:retry?) { |_, _e| n += 1 || true }
         end
 
         stub_request(:get, 'foo.com')
