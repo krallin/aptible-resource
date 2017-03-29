@@ -103,17 +103,16 @@ class HyperResource
       end
 
       def finish_up(response)
+        body = adapter_error = nil
+
         begin
           body = adapter.deserialize(response.body) unless response.body.nil?
         rescue StandardError => e
-          raise HyperResource::ResponseError.new(
-            'Error when deserializing response body',
-            response: response,
-            cause: e
-          )
+          adapter_error = e
         end
 
         status = response.status
+
         if status / 100 == 2
         elsif status / 100 == 3
           raise 'HyperResource does not handle redirects'
@@ -131,6 +130,14 @@ class HyperResource
                                                  response: response,
                                                  body: body)
 
+        end
+
+        if adapter_error
+          raise HyperResource::ResponseError.new(
+            'Error when deserializing response body',
+            response: response,
+            cause: e
+          )
         end
 
         # Unfortunately, HyperResource insists on having response and body

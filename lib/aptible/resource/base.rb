@@ -289,6 +289,11 @@ module Aptible
 
       def delete
         super
+      rescue HyperResource::ServerError
+        raise
+      rescue HyperResource::ClientError => e
+        # Already deleted
+        raise unless e.response.status == 404
       rescue HyperResource::ResponseError
         # HyperResource/Faraday choke on empty response bodies
         nil

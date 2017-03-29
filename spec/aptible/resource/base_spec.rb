@@ -32,7 +32,7 @@ describe Aptible::Resource::Base do
       end
 
       [Api, Api::Mainframe].each do |klass|
-        allow_any_instance_of(klass).to receive(:find_by_url) do |u, _|
+        allow_any_instance_of(klass).to receive(:find_by_url) do |_, u, _|
           calls << u
           page = pages[u]
           raise "Accessed unexpected URL #{u}" if page.nil?
@@ -264,6 +264,18 @@ describe Aptible::Resource::Base do
     it 'should return the object in the event of a successful update' do
       HyperResource.any_instance.stub(:put) { subject }
       expect(subject.update!({})).to eq subject
+    end
+  end
+
+  describe '#delete' do
+    it 'allows an empty response' do
+      stub_request(:delete, subject.root_url).to_return(body: '', status: 200)
+      expect(subject.delete).to be_nil
+    end
+
+    it 'ignores 404s' do
+      stub_request(:delete, subject.root_url).to_return(body: '', status: 404)
+      expect(subject.delete).to be_nil
     end
   end
 
