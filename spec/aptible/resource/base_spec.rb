@@ -32,7 +32,7 @@ describe Aptible::Resource::Base do
       end
 
       [Api, Api::Mainframe].each do |klass|
-        allow_any_instance_of(klass).to receive(:find_by_url) do |u, _|
+        allow_any_instance_of(klass).to receive(:find_by_url) do |_, u, _|
           calls << u
           page = pages[u]
           raise "Accessed unexpected URL #{u}" if page.nil?
@@ -267,6 +267,18 @@ describe Aptible::Resource::Base do
     end
   end
 
+  describe '#delete' do
+    it 'allows an empty response' do
+      stub_request(:delete, subject.root_url).to_return(body: '', status: 200)
+      expect(subject.delete).to be_nil
+    end
+
+    it 'ignores 404s' do
+      stub_request(:delete, subject.root_url).to_return(body: '', status: 404)
+      expect(subject.delete).to be_nil
+    end
+  end
+
   context '.has_many' do
     let(:mainframe) { Api::Mainframe.new }
     let(:mainframes_link) { HyperResource::Link.new(href: '/mainframes') }
@@ -401,7 +413,7 @@ describe Aptible::Resource::Base do
 
     context 'retry_coordinator_class' do
       it 'should not retry if the proc returns false' do
-        configure_new_coordinator { define_method(:retry?) { |_e| false } }
+        configure_new_coordinator { define_method(:retry?) { |_, _e| false } }
 
         stub_request(:get, 'foo.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401).then
@@ -412,7 +424,7 @@ describe Aptible::Resource::Base do
       end
 
       it 'should retry if the proc returns true' do
-        configure_new_coordinator { define_method(:retry?) { |_e| true } }
+        configure_new_coordinator { define_method(:retry?) { |_, _e| true } }
 
         stub_request(:get, 'foo.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401).then
@@ -426,7 +438,7 @@ describe Aptible::Resource::Base do
         failures = 0
 
         configure_new_coordinator do
-          define_method(:retry?) { |_e| failures += 1 || true }
+          define_method(:retry?) { |_, _e| failures += 1 || true }
         end
 
         stub_request(:get, 'foo.com')
@@ -454,7 +466,7 @@ describe Aptible::Resource::Base do
 
         configure_new_coordinator do
           define_method(:initialize) { |r| resource = r }
-          define_method(:retry?) { |e| (exception = e) && false }
+          define_method(:retry?) { |_, e| (exception = e) && false }
         end
 
         stub_request(:get, 'foo.com')
@@ -472,7 +484,7 @@ describe Aptible::Resource::Base do
         retry_was_called = false
 
         configure_new_coordinator do
-          define_method(:retry?) do |_e|
+          define_method(:retry?) do |_, _e|
             resource.token = 'bar'
             # resource.headers['Authorization'] = 'Bearer bar'
             retry_was_called = true
@@ -495,7 +507,7 @@ describe Aptible::Resource::Base do
         n = 0
 
         configure_new_coordinator do
-          define_method(:retry?) { |_e| n += 1 || true }
+          define_method(:retry?) { |_, _e| n += 1 || true }
         end
 
         stub_request(:get, 'foo.com')

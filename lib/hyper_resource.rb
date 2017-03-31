@@ -10,6 +10,7 @@ require 'hyper_resource/adapter'
 require 'hyper_resource/adapter/hal_json'
 
 require 'hyper_resource/modules/http'
+require 'hyper_resource/modules/http/wrap_errors'
 require 'hyper_resource/modules/internal_attributes'
 
 require 'rubygems' if RUBY_VERSION[0..2] == '1.8'

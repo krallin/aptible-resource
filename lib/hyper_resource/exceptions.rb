@@ -27,7 +27,7 @@ class HyperResource
           message = "#{message} (#{error})"
         end
       elsif self.response
-        message = "#{message} (\"#{self.response.inspect}\")"
+        message = "#{message} (#{response.body})"
       end
 
       super(message, attrs)

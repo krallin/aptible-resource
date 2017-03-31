@@ -12,9 +12,6 @@ require 'aptible/resource/adapter'
 require 'aptible/resource/errors'
 require 'aptible/resource/boolean'
 
-# Open errors that make sense
-require 'aptible/resource/ext/faraday'
-
 module Aptible
   module Resource
     # rubocop:disable ClassLength
@@ -289,6 +286,11 @@ module Aptible
 
       def delete
         super
+      rescue HyperResource::ServerError
+        raise
+      rescue HyperResource::ClientError => e
+        # Already deleted
+        raise unless e.response.status == 404
       rescue HyperResource::ResponseError
         # HyperResource/Faraday choke on empty response bodies
         nil

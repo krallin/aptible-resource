@@ -59,6 +59,7 @@ class HyperResource
     ## Returns a hash of the attributes and values which have been changed
     ## since creation time.
     def changed_attributes
+      return {} if @_hr_changed.nil?
       @_hr_changed.select{|k,v| v}.keys.inject({}) {|h,k| h[k]=self[k]; h}
     end
 

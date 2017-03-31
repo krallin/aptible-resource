@@ -20,4 +20,8 @@ WebMock.disable_net_connect!
 RSpec.configure do |config|
   config.before { Aptible::Resource.configuration.reset }
   config.before { WebMock.reset! }
+
+  config.mock_with :rspec do |mocks|
+    mocks.yield_receiver_to_any_instance_implementation_blocks = true
+  end
 end
