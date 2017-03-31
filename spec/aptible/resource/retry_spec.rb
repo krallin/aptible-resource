@@ -2,11 +2,20 @@ require 'spec_helper'
 
 # With webmock (fake connections), to check how we handle timeouts.
 describe Aptible::Resource::Base do
-  let(:body) { { 'hello' => '1' } }
+  let(:body) do
+    { 'hello' => '1', '_links' => { 'self' => { 'href' => href } } }
+  end
   let(:json_body) { JSON.unparse(body) }
-  let(:domain) { 'api.aptible.com' }
+  let(:href) { 'https://resource.example.com/mainframes/1' }
 
-  subject { Api.new(root: "http://#{domain}") }
+  subject do
+    stub = stub_request(:get, href).to_return(body: json_body)
+    begin
+      Api::Mainframe.find(1)
+    ensure
+      remove_request_stub(stub)
+    end
+  end
 
   let(:sleeps) { [] }
 
@@ -23,7 +32,7 @@ describe Aptible::Resource::Base do
     shared_examples 'retry examples' do |method|
       context "#{method.to_s.upcase} requests" do
         it 'should retry a server error' do
-          stub_request(method, domain)
+          stub_request(method, href)
             .to_return(body: { error: 'foo' }.to_json, status: 500).then
             .to_return(body: json_body)
 
@@ -31,7 +40,7 @@ describe Aptible::Resource::Base do
         end
 
         it 'should retry a server error with no body' do
-          stub_request(method, domain)
+          stub_request(method, href)
             .to_return(body: '', status: 502).then
             .to_return(body: json_body)
 
@@ -39,7 +48,7 @@ describe Aptible::Resource::Base do
         end
 
         it 'should eventually give up' do
-          stub_request(method, domain)
+          stub_request(method, href)
             .to_return(body: { error: 'foo' }.to_json, status: 500)
 
           expect { subject.public_send(method) }
@@ -47,7 +56,7 @@ describe Aptible::Resource::Base do
         end
 
         it 'should not retry a client error' do
-          stub_request(method, domain)
+          stub_request(method, href)
             .to_return(body: { error: 'foo' }.to_json, status: 400).then
             .to_return(body: json_body)
 
@@ -56,7 +65,7 @@ describe Aptible::Resource::Base do
         end
 
         it 'should not retry parse errors' do
-          stub_request(method, domain)
+          stub_request(method, href)
             .to_return(body: 'boo', status: 400).then
             .to_return(body: json_body)
 
@@ -69,10 +78,11 @@ describe Aptible::Resource::Base do
     include_examples 'retry examples', :delete
     include_examples 'retry examples', :get
     include_examples 'retry examples', :put
+    include_examples 'retry examples', :patch
 
     context 'POST requests' do
       it 'should not retry a server error' do
-        stub_request(:post, domain)
+        stub_request(:post, href)
           .to_return(body: { error: 'foo' }.to_json, status: 504).then
           .to_return(body: json_body)
 
@@ -85,7 +95,7 @@ describe Aptible::Resource::Base do
 
     context 'retry coordinator overrides' do
       before do
-        stub_request(:get, domain)
+        stub_request(:get, href)
           .to_return(body: { error: 'foo' }.to_json, status: 500).then
           .to_return(body: { status: 'ok' }.to_json, status: 200)
       end
@@ -109,7 +119,7 @@ describe Aptible::Resource::Base do
   context 'network errors' do
     context 'with mock connections' do
       it 'should retry timeout errors' do
-        stub_request(:get, domain)
+        stub_request(:get, href)
           .to_timeout.then
           .to_timeout.then
           .to_return(body: json_body)
@@ -118,7 +128,7 @@ describe Aptible::Resource::Base do
       end
 
       it 'should retry timeout errors (Errno::ETIMEDOUT)' do
-        stub_request(:get, domain)
+        stub_request(:get, href)
           .to_raise(Errno::ETIMEDOUT).then
           .to_raise(Errno::ETIMEDOUT).then
           .to_return(body: json_body)
@@ -127,7 +137,7 @@ describe Aptible::Resource::Base do
       end
 
       it 'should retry timeout errors (Net::OpenTimeout)' do
-        stub_request(:get, domain)
+        stub_request(:get, href)
           .to_raise(Net::OpenTimeout).then
           .to_raise(Net::OpenTimeout).then
           .to_return(body: json_body)
@@ -136,7 +146,7 @@ describe Aptible::Resource::Base do
       end
 
       it 'should retry connection errors' do
-        stub_request(:get, domain)
+        stub_request(:get, href)
           .to_raise(Errno::ECONNREFUSED).then
           .to_raise(Errno::ECONNREFUSED).then
           .to_return(body: json_body)
@@ -145,7 +155,7 @@ describe Aptible::Resource::Base do
       end
 
       it 'should not retry POSTs' do
-        stub_request(:post, domain)
+        stub_request(:post, href)
           .to_timeout.then
           .to_return(body: json_body)
 
@@ -170,7 +180,7 @@ describe Aptible::Resource::Base do
           .exactly(4).times
           .and_raise(Net::OpenTimeout)
 
-        expect { subject.all }.to raise_error(Faraday::ConnectionFailed)
+        expect { subject.get }.to raise_error(Faraday::ConnectionFailed)
         expect(sleeps.size).to eq(3)
       end
     end

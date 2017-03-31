@@ -3,7 +3,12 @@ module Aptible
     class DefaultRetryCoordinator
       attr_reader :resource, :retry_schedule
 
-      IDEMPOTENT_METHODS = [:delete, :get, :head, :options, :put].freeze
+      IDEMPOTENT_METHODS = [
+        # Idempotent as per RFC
+        :delete, :get, :head, :options, :put,
+        # Idempotent on our APIs
+        :patch
+      ].freeze
       RETRY_ERRORS = [Faraday::Error, HyperResource::ServerError].freeze
 
       def initialize(resource)
