@@ -22,11 +22,14 @@ class HyperResource
       self.body = attrs[:body]
 
       ## Try to help out with the message
-      if self.body
-        if error = self.body['error']
+      if body
+        if (error = body['error'])
           message = "#{message} (#{error})"
         end
-      elsif self.response
+        if (error_message = body['message'])
+          message = "#{message} (#{error_message})"
+        end
+      elsif response
         message = "#{message} (#{response.body})"
       end
 
