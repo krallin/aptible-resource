@@ -37,7 +37,8 @@ module Aptible
       end
 
       def self.each_page(options = {})
-        return unless block_given?
+        return enum_for(:each_page, options) unless block_given?
+
         href = options[:href] || collection_href
         while href
           # TODO: Breaking here is consistent with the existing behavior of
@@ -101,7 +102,7 @@ module Aptible
       # rubocop:enable PredicateName
 
       def self.embeds_many(relation)
-        define_embeds_many_getter(relation)
+        define_embeds_many_getters(relation)
         define_has_many_setter(relation)
       end
 
@@ -147,11 +148,16 @@ module Aptible
           end
         end
 
-        define_method "each_#{relation.to_s.singularize}" do |&block|
-          return if block.nil?
-          self.class.each_page(href: links[relation].base_href,
-                               token: token,
-                               headers: headers) do |page|
+        iterator_method = "each_#{relation.to_s.singularize}".to_sym
+
+        define_method iterator_method do |&block|
+          next enum_for(iterator_method) if block.nil?
+
+          self.class.each_page(
+            href: links[relation].base_href,
+            token: token,
+            headers: headers
+          ) do |page|
             page.each { |entry| block.call entry }
           end
         end
@@ -166,10 +172,17 @@ module Aptible
         end
       end
 
-      def self.define_embeds_many_getter(relation)
+      def self.define_embeds_many_getters(relation)
         define_method relation do
           get unless loaded
           objects[relation].entries
+        end
+
+        iterator_method = "each_#{relation.to_s.singularize}".to_sym
+
+        define_method iterator_method do |&block|
+          next enum_for(iterator_method) if block.nil?
+          send(relation).each(&block)
         end
       end
 

@@ -130,6 +130,14 @@ describe Aptible::Resource::Base do
       Api::Mainframe.each_page { break }
       expect(calls).to eq(['/mainframes'])
     end
+
+    it 'should return an enum if no block is given' do
+      e = Api::Mainframe.each_page
+      pages = 0
+      e.each { pages += 1 }
+      expect(pages).to eq(2)
+      expect(calls).to eq(urls)
+    end
   end
 
   describe '.create' do
@@ -362,8 +370,53 @@ describe Aptible::Resource::Base do
         expect(calls).to eq([urls[0]])
       end
 
-      it 'should not fail if not passed a block' do
-        subject.each_mainframe
+      it 'should return an enum if no block is given' do
+        e = subject.each_mainframe
+        records = []
+        e.each { |m| records << m }
+        expect(records.size).to eq(2)
+        expect(calls).to eq(urls)
+      end
+    end
+  end
+
+  context '.embeds_many' do
+    let(:m1) { Api::Mainframe.new }
+    let(:m2) { Api::Mainframe.new }
+
+    before { subject.stub(:loaded) { true } }
+    before { subject.stub(:objects) { { embedded_mainframes: [m1, m2] } } }
+    before { m1.stub(id: 1) }
+    before { m2.stub(id: 2) }
+
+    describe '#{relation}s' do
+      it 'should return all records' do
+        records = subject.embedded_mainframes
+
+        expect(records.size).to eq(2)
+        expect(records.first.id).to eq(1)
+        expect(records.second.id).to eq(2)
+      end
+    end
+
+    describe 'each_#{relation}' do
+      it 'should iterate over all records' do
+        records = []
+        subject.each_embedded_mainframe { |mainframe| records << mainframe }
+
+        expect(records.size).to eq(2)
+        expect(records.first.id).to eq(1)
+        expect(records.second.id).to eq(2)
+      end
+
+      it 'should return an enum if no block is given' do
+        e = subject.each_embedded_mainframe
+        records = []
+        e.each { |mainframe| records << mainframe }
+
+        expect(records.size).to eq(2)
+        expect(records.first.id).to eq(1)
+        expect(records.second.id).to eq(2)
       end
     end
   end
