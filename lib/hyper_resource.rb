@@ -130,14 +130,14 @@ public
   ## in this resource.  Returns nil on failure.
   def [](i)
     get unless loaded
-    self.objects.first[1][i] rescue nil
+    self.objects.first[1][i]
   end
 
   ## Iterates over the objects in the first collection of embedded objects
   ## in this resource.
   def each(&block)
     get unless loaded
-    self.objects.first[1].each(&block) rescue nil
+    self.objects.first[1].each(&block)
   end
 
   #### Magic

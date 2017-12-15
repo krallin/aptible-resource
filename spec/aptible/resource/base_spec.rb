@@ -646,4 +646,35 @@ describe Aptible::Resource::Base do
       expect(m.token).to eq('bar')
     end
   end
+
+  context 'last-minute fetching' do
+    subject { Api.new(root: 'http://foo.com') }
+
+    it 'should support enumerable methods' do
+      index = {
+        _links: {
+          some_items: { href: 'http://foo.com/some_items' }
+        }
+      }
+
+      some_items = {
+        _embedded: {
+          some_items: [
+            { id: 1, handle: 'foo' },
+            { id: 2, handle: 'bar' },
+            { id: 3, handle: 'qux' }
+          ]
+        }
+      }
+
+      stub_request(:get, 'foo.com')
+        .to_return(body: index.to_json, status: 200)
+
+      stub_request(:get, 'foo.com/some_items')
+        .to_return(body: some_items.to_json, status: 200)
+
+      bar = subject.some_items.find { |m| m.id == 2 }
+      expect(bar.handle).to eq('bar')
+    end
+  end
 end
