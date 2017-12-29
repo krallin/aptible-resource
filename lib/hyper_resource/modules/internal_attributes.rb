@@ -26,7 +26,6 @@ module HyperResource::Modules
           :headers,          ## e.g. {'Accept' => 'application/vnd.example+json'}
           :namespace,        ## e.g. 'ExampleAPI', or the class ExampleAPI itself
           :adapter,          ## subclass of HR::Adapter
-          :faraday_options   ## e.g. {:request => {:timeout => 30}}
         ]
       end
 
@@ -37,7 +36,6 @@ module HyperResource::Modules
           :headers,
           :namespace,
           :adapter,
-          :faraday_options,
           :token,
 
           :request,

@@ -224,16 +224,6 @@ module Aptible
         end
       end
 
-      def self.faraday_options
-        # Default Faraday options. May be overridden by passing
-        # faraday_options to the initializer.
-        {
-          request: {
-            open_timeout: 10
-          }
-        }
-      end
-
       def initialize(options = {})
         return super(options) unless options.is_a?(Hash)
 
@@ -305,7 +295,7 @@ module Aptible
         # Already deleted
         raise unless e.response.status == 404
       rescue HyperResource::ResponseError
-        # HyperResource/Faraday choke on empty response bodies
+        # HyperResource chokes on empty response bodies
         nil
       end
 
