@@ -3,6 +3,7 @@ require 'aptible/resource/base'
 require 'aptible/resource/default_retry_coordinator'
 require 'aptible/resource/null_retry_coordinator'
 require 'gem_config'
+require 'logger'
 
 module Aptible
   module Resource
@@ -18,6 +19,10 @@ module Aptible
       has :user_agent,
           classes: [String],
           default: "aptible-resource #{Aptible::Resource::VERSION}"
+
+      has :logger,
+          classes: [Logger],
+          default: Logger.new(STDERR).tap { |l| l.level = Logger::WARN }
     end
 
     class << self

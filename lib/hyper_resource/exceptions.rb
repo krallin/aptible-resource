@@ -10,7 +10,7 @@ class HyperResource
   end
 
   class ResponseError < Exception
-    ## The +Faraday::Response+ object which led to this exception.
+    ## The +HTTPClient::Message+ object which led to this exception.
     attr_accessor :response
 
     ## The deserialized response body which led to this exception.

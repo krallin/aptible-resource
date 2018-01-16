@@ -21,9 +21,8 @@ Gem::Specification.new do |spec|
 
   # HyperResource dependencies
   spec.add_dependency 'uri_template', '>= 0.5.2'
-  spec.add_dependency 'faraday',      '>= 0.9.2', '< 0.14'
   spec.add_dependency 'json'
-
+  spec.add_dependency 'httpclient', '~> 2.8'
   spec.add_dependency 'fridge'
   spec.add_dependency 'activesupport', '>= 4.0', '< 6.0'
   spec.add_dependency 'gem_config', '~> 0.3.1'

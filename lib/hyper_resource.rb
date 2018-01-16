@@ -46,9 +46,6 @@ public
   ## [headers] Headers to send along with requests for this resource (as
   ##           well as its eventual child resources, if any).
   ##
-  ## [faraday_options] Configuration passed to +Faraday::Connection.initialize+,
-  ##                   such as +{request: {timeout: 30}}+.
-  ##
   def initialize(opts={})
     return init_from_resource(opts) if opts.kind_of?(HyperResource)
 
@@ -58,8 +55,6 @@ public
     self.namespace  = opts[:namespace] || self.class.namespace
     self.headers    = DEFAULT_HEADERS.merge(self.class.headers || {}).
                                       merge(opts[:headers]     || {})
-    self.faraday_options = opts[:faraday_options] ||
-                               self.class.faraday_options || {}
 
     ## There's a little acrobatics in getting Attributes, Links, and Objects
     ## into the correct subclass.
@@ -199,7 +194,6 @@ public
                    :auth            => self.auth,
                    :headers         => self.headers,
                    :namespace       => self.namespace,
-                   :faraday_options => self.faraday_options,
                    :token           => self.token,
                    :href            => href)
   end
@@ -252,7 +246,6 @@ public
     self.namespace ||= self.class.to_s unless self.class.to_s=='HyperResource'
     self.class.response_class(self.response, self.namespace)
   end
-
 
   ## Inspects the given Faraday::Response, and returns a string describing
   ## this resource's data type.

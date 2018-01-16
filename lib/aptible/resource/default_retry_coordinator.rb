@@ -5,11 +5,27 @@ module Aptible
 
       IDEMPOTENT_METHODS = [
         # Idempotent as per RFC
-        :delete, :get, :head, :options, :put,
+        'DELETE', 'GET', 'HEAD', 'OPTIONS', 'PUT',
+
         # Idempotent on our APIs
-        :patch
+        'PATCH'
       ].freeze
-      RETRY_ERRORS = [Faraday::Error, HyperResource::ServerError].freeze
+
+      RETRY_ERRORS = [
+        # Ancestor for Errno::X
+        SystemCallError,
+
+        # Might be caused by e.g. DNS failure
+        SocketError,
+
+        # HTTPClient transfer error
+        HTTPClient::TimeoutError,
+        HTTPClient::KeepAliveDisconnected,
+        HTTPClient::BadResponseError,
+
+        # Bad response
+        HyperResource::ServerError
+      ].freeze
 
       def initialize(resource)
         @resource = resource

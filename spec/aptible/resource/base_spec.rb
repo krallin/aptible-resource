@@ -52,16 +52,31 @@ describe Aptible::Resource::Base do
   end
 
   describe '.find' do
-    it 'should call find_by_url' do
-      url = '/mainframes/42'
-      expect(Api::Mainframe).to receive(:find_by_url).with url, {}
-      Api::Mainframe.find(42)
+    it 'should find' do
+      stub_request(
+        :get, 'https://resource.example.com/mainframes/42'
+      ).to_return(body: { id: 42 }.to_json, status: 200)
+
+      m = Api::Mainframe.find(42)
+      expect(m.id).to eq(42)
     end
 
-    it 'should call find_by_url with query params' do
-      url = '/mainframes/42?test=123'
-      expect(Api::Mainframe).to receive(:find_by_url).with url, test: 123
-      Api::Mainframe.find(42, test: 123)
+    it 'should find with query params' do
+      stub_request(
+        :get, 'https://resource.example.com/mainframes/42?test=123'
+      ).to_return(body: { id: 42 }.to_json, status: 200)
+
+      m = Api::Mainframe.find(42, test: 123)
+      expect(m.id).to eq(42)
+    end
+
+    it 'should return an instance of the correct class' do
+      stub_request(
+        :get, 'https://resource.example.com/mainframes/42'
+      ).to_return(body: { id: 42 }.to_json, status: 200)
+
+      m = Api::Mainframe.find(42)
+      expect(m).to be_a(Api::Mainframe)
     end
   end
 
@@ -453,7 +468,7 @@ describe Aptible::Resource::Base do
   end
 
   context 'configuration' do
-    subject { Api.new(root: 'http://foo.com') }
+    subject { Api.new(root: 'http://example.com') }
 
     def configure_new_coordinator(&block)
       Aptible::Resource.configure do |config|
@@ -468,7 +483,7 @@ describe Aptible::Resource::Base do
       it 'should not retry if the proc returns false' do
         configure_new_coordinator { define_method(:retry?) { |_, _e| false } }
 
-        stub_request(:get, 'foo.com')
+        stub_request(:get, 'example.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401).then
           .to_return(body: { status: 'ok' }.to_json, status: 200)
 
@@ -479,7 +494,7 @@ describe Aptible::Resource::Base do
       it 'should retry if the proc returns true' do
         configure_new_coordinator { define_method(:retry?) { |_, _e| true } }
 
-        stub_request(:get, 'foo.com')
+        stub_request(:get, 'example.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401).then
           .to_return(body: { error: 'foo' }.to_json, status: 401).then
           .to_return(body: { status: 'ok' }.to_json, status: 200)
@@ -494,7 +509,7 @@ describe Aptible::Resource::Base do
           define_method(:retry?) { |_, _e| failures += 1 || true }
         end
 
-        stub_request(:get, 'foo.com')
+        stub_request(:get, 'example.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401).then
           .to_return(body: { status: 'ok' }.to_json, status: 200).then
           .to_return(body: { error: 'foo' }.to_json, status: 401)
@@ -505,7 +520,7 @@ describe Aptible::Resource::Base do
       end
 
       it 'should not retry with the default proc' do
-        stub_request(:get, 'foo.com')
+        stub_request(:get, 'example.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401).then
           .to_return(body: { status: 'ok' }.to_json, status: 200)
 
@@ -522,7 +537,7 @@ describe Aptible::Resource::Base do
           define_method(:retry?) { |_, e| (exception = e) && false }
         end
 
-        stub_request(:get, 'foo.com')
+        stub_request(:get, 'example.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401)
 
         expect { subject.get.body }
@@ -544,11 +559,11 @@ describe Aptible::Resource::Base do
           end
         end
 
-        stub_request(:get, 'foo.com')
+        stub_request(:get, 'example.com')
           .with(headers: { 'Authorization' => /foo/ })
           .to_return(body: { error: 'foo' }.to_json, status: 401)
 
-        stub_request(:get, 'foo.com')
+        stub_request(:get, 'example.com')
           .with(headers: { 'Authorization' => /bar/ })
           .to_return(body: { status: 'ok' }.to_json, status: 200)
 
@@ -563,7 +578,7 @@ describe Aptible::Resource::Base do
           define_method(:retry?) { |_, _e| n += 1 || true }
         end
 
-        stub_request(:get, 'foo.com')
+        stub_request(:get, 'example.com')
           .to_return(body: { error: 'foo' }.to_json, status: 401)
 
         expect { subject.get.body }
@@ -579,7 +594,7 @@ describe Aptible::Resource::Base do
           config.user_agent = 'foo ua'
         end
 
-        stub_request(:get, 'foo.com')
+        stub_request(:get, 'example.com')
           .with(headers: { 'User-Agent' => 'foo ua' })
           .to_return(body: { status: 'ok' }.to_json, status: 200)
 
@@ -589,22 +604,22 @@ describe Aptible::Resource::Base do
   end
 
   context 'token' do
-    subject { Api.new(root: 'http://foo.com', token: 'bar') }
+    subject { Api.new(root: 'http://example.com', token: 'bar') }
 
     before do
-      stub_request(:get, 'foo.com/')
+      stub_request(:get, 'example.com/')
         .with(headers: { 'Authorization' => /Bearer (bar|foo)/ })
         .to_return(body: {
-          _links: { some: { href: 'http://foo.com/some' },
-                    mainframes: { href: 'http://foo.com/mainframes' } },
+          _links: { some: { href: 'http://example.com/some' },
+                    mainframes: { href: 'http://example.com/mainframes' } },
           _embedded: { best_mainframe: { _type: 'mainframe', status: 'ok' } }
         }.to_json, status: 200)
 
-      stub_request(:get, 'foo.com/some')
+      stub_request(:get, 'example.com/some')
         .with(headers: { 'Authorization' => /Bearer (bar|foo)/ })
         .to_return(body: { status: 'ok' }.to_json, status: 200)
 
-      stub_request(:get, 'foo.com/mainframes')
+      stub_request(:get, 'example.com/mainframes')
         .with(headers: { 'Authorization' => /Bearer (bar|foo)/ })
         .to_return(body: { _embedded: {
           mainframes: [{ status: 'ok' }]
@@ -647,7 +662,7 @@ describe Aptible::Resource::Base do
     end
   end
 
-  context 'last-minute fetching' do
+  context 'lazy fetching' do
     subject { Api.new(root: 'http://foo.com') }
 
     it 'should support enumerable methods' do
@@ -675,6 +690,56 @@ describe Aptible::Resource::Base do
 
       bar = subject.some_items.find { |m| m.id == 2 }
       expect(bar.handle).to eq('bar')
+    end
+  end
+
+  describe '_type' do
+    subject { Api.new(root: 'http://example.com', token: 'bar') }
+
+    it 'uses the correct class for an expected linked instance' do
+      stub_request(:get, 'example.com/')
+        .to_return(body: {
+          _links: {
+            worst_mainframe: { href: 'http://example.com/mainframes/123' }
+          }
+        }.to_json, status: 200)
+
+      stub_request(:get, 'example.com/mainframes/123')
+        .to_return(body: { _type: 'mainframe', id: 123 }.to_json, status: 200)
+
+      expect(subject.worst_mainframe).to be_a(Api::Mainframe)
+    end
+
+    it 'uses the correct class for an unexpected linked instance' do
+      stub_request(:get, 'example.com/')
+        .to_return(body: {
+          _links: {
+            some: { href: 'http://example.com/mainframes/123' }
+          }
+        }.to_json, status: 200)
+
+      stub_request(:get, 'example.com/mainframes/123')
+        .to_return(body: { _type: 'mainframe', id: 123 }.to_json, status: 200)
+
+      expect(subject.some.get).to be_a(Api::Mainframe)
+    end
+
+    it 'uses the correct class for an expected embedded instance' do
+      stub_request(:get, 'example.com/')
+        .to_return(body: {
+          _embedded: { best_mainframe: { _type: 'mainframe', id: 123 } }
+        }.to_json, status: 200)
+
+      expect(subject.best_mainframe).to be_a(Api::Mainframe)
+    end
+
+    it 'uses the correct class for an unexpected embedded instance' do
+      stub_request(:get, 'example.com/')
+        .to_return(body: {
+          _embedded: { some: { _type: 'mainframe', id: 123 } }
+        }.to_json, status: 200)
+
+      expect(subject.some).to be_a(Api::Mainframe)
     end
   end
 end

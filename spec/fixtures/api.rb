@@ -4,6 +4,7 @@ class Api < Aptible::Resource::Base
   has_many :mainframes
   embeds_many :embedded_mainframes
   embeds_one :best_mainframe
+  has_one :worst_mainframe
 
   def namespace
     'Api'

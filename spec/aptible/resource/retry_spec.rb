@@ -136,15 +136,6 @@ describe Aptible::Resource::Base do
         expect(subject.get.body).to eq(body)
       end
 
-      it 'should retry timeout errors (Net::OpenTimeout)' do
-        stub_request(:get, href)
-          .to_raise(Net::OpenTimeout).then
-          .to_raise(Net::OpenTimeout).then
-          .to_return(body: json_body)
-
-        expect(subject.get.body).to eq(body)
-      end
-
       it 'should retry connection errors' do
         stub_request(:get, href)
           .to_raise(Errno::ECONNREFUSED).then
@@ -159,29 +150,8 @@ describe Aptible::Resource::Base do
           .to_timeout.then
           .to_return(body: json_body)
 
-        expect { subject.post }.to raise_error(Faraday::ConnectionFailed)
-      end
-    end
-
-    context 'without connections' do
-      around do |example|
-        WebMock.allow_net_connect!
-        example.run
-        WebMock.disable_net_connect!
-      end
-
-      it 'default to 10 seconds of timeout and retries 4 times' do
-        # This really relies on how exactly MRI implements Net::HTTP open
-        # timeouts
-        skip 'MRI implementation-specific' if RUBY_PLATFORM == 'java'
-
-        expect(Timeout).to receive(:timeout)
-          .with(10, Net::OpenTimeout)
-          .exactly(4).times
-          .and_raise(Net::OpenTimeout)
-
-        expect { subject.get }.to raise_error(Faraday::ConnectionFailed)
-        expect(sleeps.size).to eq(3)
+        expect { subject.post }
+          .to raise_error(HTTPClient::TimeoutError)
       end
     end
   end

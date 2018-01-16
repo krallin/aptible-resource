@@ -18,6 +18,8 @@ require 'webmock/rspec'
 WebMock.disable_net_connect!
 
 RSpec.configure do |config|
+  config.before(:suite) { HyperResource::Modules::HTTP.initialize_http_client! }
+
   config.before { Aptible::Resource.configuration.reset }
   config.before { WebMock.reset! }
 
